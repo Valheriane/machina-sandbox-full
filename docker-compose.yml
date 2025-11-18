@@ -1,0 +1,41 @@
+services:
+  broker:
+    image: eclipse-mosquitto:2
+    container_name: mqtt-broker2
+    ports:
+      - "1883:1883"
+      - "9001:9001"         # WebSocket
+    volumes:
+      - ./broker/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./broker:/mosquitto/data
+    networks: [iotnet]
+
+  fleet-api:
+    build: ./fleet-api
+    container_name: fleet-api
+    environment:
+      MQTT_HOST: broker
+      MQTT_PORT: 1883
+      TOPIC_PREFIX: lab
+      SHARED_SECRET: dev-secret-change-me
+      DATABASE_URL: sqlite:///data/fleet.db
+    volumes:
+      - ./fleet-api/data:/app/data
+    depends_on: [broker]
+    ports:
+      - "8000:8000"
+    networks: [iotnet]
+  
+  front:
+    build:
+      context: ./front
+      dockerfile: Dockerfile
+    ports:
+      - "8085:80"         # front dispo sur http://localhost:8085
+    depends_on:
+      - fleet-api
+      - broker
+
+networks:
+  iotnet:
+    driver: bridge

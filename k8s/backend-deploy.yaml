@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fleet-api
+  namespace: machina-sandbox
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: fleet-api
+  template:
+    metadata:
+      labels:
+        app: fleet-api
+    spec:
+      containers:
+        - name: fleet-api
+          image: fleet-api:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+          env:
+            - name: MQTT_HOST
+              value: broker
+            - name: MQTT_PORT
+              value: "1883"
+            - name: TOPIC_PREFIX
+              value: "lab"
+            - name: SHARED_SECRET
+              value: "dev-secret-change-me"
+            - name: DATABASE_URL
+              value: "sqlite:///data/fleet.db"
+          # (on ne met pas de volume pour le moment : DB locale dans le pod)
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fleet-api
+  namespace: machina-sandbox
+spec:
+  selector:
+    app: fleet-api
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
+  type: ClusterIP

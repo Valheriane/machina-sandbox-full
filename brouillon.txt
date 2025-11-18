@@ -1,0 +1,70 @@
+front:
+    build: ./front
+    container_name: fleet-front
+    environment:
+      VITE_MQTT_WS_URL: ws://localhost:9001
+      VITE_API_URL: http://localhost:8000
+    depends_on: [fleet-api]
+    ports:
+      - "5173:5173"
+    networks: [iotnet]
+
+  drone1:
+    build: ./agents/drone
+    container_name: agent-drone-1
+    restart: unless-stopped
+    environment:
+      DRONE_ID: "drone-001"
+      MQTT_HOST: broker
+      MQTT_PORT: 1883
+      MQTT_USERNAME: ""
+      MQTT_PASSWORD: ""
+      TOPIC_PREFIX: "lab"
+      PUBLISH_INTERVAL_SEC: 1.0
+      SHARED_SECRET: "dev-secret-change-me"
+      START_LAT: 43.610769
+      START_LON: 3.876716
+      START_ALT: 0.0
+    depends_on:
+      - broker
+    networks:
+      - iotnet
+  drone2:
+    build: ./agents/drone
+    container_name: agent-drone-2
+    restart: unless-stopped
+    environment:
+      DRONE_ID: "drone-002"
+      MQTT_HOST: broker
+      MQTT_PORT: 1883
+      TOPIC_PREFIX: "lab"
+      SHARED_SECRET: "dev-secret-change-me"
+      PUBLISH_INTERVAL_SEC: 0.5          # publie 2x plus vite
+      START_LAT: 43.612500
+      START_LON: 3.874900
+      START_ALT: 0.0
+      CRUISE_SPEED_MPS: 12.0             # plus rapide
+      BATTERY_DRAIN: 0.007               # se vide un peu plus vite
+      HEADING_NOISE: 1.5                 # un chouïa de jitter cap
+    depends_on: [broker]
+    networks: [iotnet]
+
+  drone3:
+    build: ./agents/drone
+    container_name: agent-drone-3
+    restart: unless-stopped
+    environment:
+      DRONE_ID: "drone-003"
+      MQTT_HOST: broker
+      MQTT_PORT: 1883
+      TOPIC_PREFIX: "lab"
+      SHARED_SECRET: "dev-secret-change-me"
+      PUBLISH_INTERVAL_SEC: 1.5          # publie moins souvent
+      START_LAT: 43.609900
+      START_LON: 3.879000
+      START_ALT: 0.0
+      CRUISE_SPEED_MPS: 6.0              # plus lent
+      BATTERY_DRAIN: 0.003               # plus endurant
+      HEADING_NOISE: 0.0
+    depends_on: [broker]
+    networks: [iotnet]
