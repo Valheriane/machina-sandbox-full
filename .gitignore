@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Node
+node_modules/
+dist/
+build/
+
+# Logs
+*.log
+logs/
+
+# Environnements
+.env
+.env.*
+
+# SQLite DB
+*.db
+fleet-api/data/
+
+# Compiled React
+front/dist/
+
+# Docker
+*/data
