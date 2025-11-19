@@ -455,5 +455,284 @@ docker ps
 docker logs -f backend
 docker exec -it mqtt-broker sh
 ```
+Bien sûr ! Voici une **documentation claire, courte et propre**, idéale pour ton projet ou pour expliquer à quelqu’un comment utiliser **Minikube + Kubernetes** pour lancer/relancer ton cluster, gérer les pods et débugger avec les logs.
+
+Tu peux la mettre dans ton repo GitHub sous `docs/kubernetes.md` si tu veux 😉
+
+---
+
+# 📘 Documentation Express – Minikube & Kubernetes pour Machina Sandbox
+
+## 🟦 1. Lancer ou relancer Minikube
+
+### 👉 Démarrer Minikube
+
+```powershell
+minikube start --driver=docker
+```
+
+Cette commande :
+
+* crée le cluster si ce n’est pas fait
+* démarre kubelet + API server
+* configure kubectl automatiquement
+
+---
+
+### 👉 Vérifier l'état de Minikube
+
+```powershell
+minikube status
+```
+
+Résultat attendu :
+
+```
+host: Running
+kubelet: Running
+apiserver: Running
+kubeconfig: Configured
+```
+
+---
+
+### 👉 Si `kubectl` n’arrive pas à se connecter
+
+(Recommandation directe de Minikube)
+
+```
+minikube update-context
+```
+
+---
+
+### 👉 Redémarrer proprement le cluster
+
+```powershell
+minikube stop
+minikube start --driver=docker
+```
+
+---
+
+### ❗ Si le cluster est vraiment cassé (après un crash PC par exemple)
+
+⚠️ Cela supprime le cluster mais PAS tes manifests :
+
+```powershell
+minikube delete
+minikube start --driver=docker
+minikube update-context
+```
+
+Ensuite réapplique tes YAML (voir section 3).
+
+---
+
+## 🟩 2. Voir l'état des pods et services
+
+### 👉 Voir tous les pods (tous namespaces)
+
+```powershell
+kubectl get pods -A
+```
+
+### 👉 Voir les pods de ton namespace (machina-sandbox)
+
+```powershell
+kubectl get pods -n machina-sandbox
+```
+
+Exemple de sortie :
+
+```
+broker-xxx        Running
+fleet-api-yyy     Running
+front-zzz         Running
+```
+
+---
+
+### 👉 Voir les services
+
+```powershell
+kubectl get svc -n machina-sandbox
+```
+
+---
+
+### 👉 Voir les nodes Kubernetes
+
+```powershell
+kubectl get nodes
+```
+
+---
+
+## 🟧 3. (Re)déployer ton application
+
+À chaque modification dans tes YAML :
+
+```powershell
+kubectl apply -f k8s/
+```
+
+Ou fichier par fichier :
+
+```powershell
+kubectl apply -f k8s/broker-deploy.yaml
+kubectl apply -f k8s/backend-deploy.yaml
+kubectl apply -f k8s/front-deploy.yaml
+```
+
+---
+
+## 🟨 4. Modifier le nombre de pods (replicas)
+
+### 👉 Méthode A — modifier directement dans le fichier deploy.yaml
+
+```yaml
+spec:
+  replicas: 2
+```
+
+Puis réappliquer :
+
+```powershell
+kubectl apply -f k8s/backend-deploy.yaml
+```
+
+---
+
+### 👉 Méthode B — changer à la volée (test rapide)
+
+```powershell
+kubectl scale deployment fleet-api --replicas=2 -n machina-sandbox
+kubectl scale deployment front --replicas=1 -n machina-sandbox
+kubectl scale deployment broker --replicas=1 -n machina-sandbox
+```
+
+---
+
+## 🟦 5. Accéder au front depuis Minikube
+
+### 👉 La méthode recommandée
+
+```powershell
+minikube service front -n machina-sandbox --url
+```
+
+Cela retourne une URL du type :
+
+```
+http://127.0.0.1:31140
+```
+
+---
+
+### 👉 Accès direct via NodePort
+
+(Résultat de `kubectl get svc`)
+
+```
+http://localhost:<nodePort>
+```
+
+---
+
+## 🟥 6. Voir les logs (debug essentiel)
+
+### 👉 Voir les logs d’un pod spécifique
+
+Backend :
+
+```powershell
+kubectl logs -f -l app=fleet-api -n machina-sandbox
+```
+
+Broker :
+
+```powershell
+kubectl logs -f -l app=broker -n machina-sandbox
+```
+
+Front :
+
+```powershell
+kubectl logs -f -l app=front -n machina-sandbox
+```
+
+### 👉 Voir les logs d’un POD précis (nom complet)
+
+```powershell
+kubectl logs -f fleet-api-55c4c9c8dd-6pgfs -n machina-sandbox
+```
+
+---
+
+## 🟫 7. Debug MQTT : se connecter dans le pod Mosquitto
+
+### 👉 Entrer dans le pod
+
+```powershell
+kubectl exec -it <broker-pod-name> -n machina-sandbox -- sh
+```
+
+### 👉 Écouter tous les topics
+
+```sh
+mosquitto_sub -t "#" -v
+```
+
+### 👉 Publier un message test
+
+```sh
+mosquitto_pub -t "lab/test" -m "hello"
+```
+
+---
+
+## 🟧 8. Astuces utiles
+
+### 👉 Redémarrer un déploiement (reload image / env)
+
+```powershell
+kubectl rollout restart deployment fleet-api -n machina-sandbox
+```
+
+### 👉 Voir les events Kubernetes
+
+```powershell
+kubectl get events -n machina-sandbox --sort-by=.metadata.creationTimestamp
+```
+
+### 👉 Diagnostiquer un pod qui ne démarre pas
+
+```powershell
+kubectl describe pod <pod-name> -n machina-sandbox
+```
+
+---
+
+# 🎯 Résumé rapide (cheat-sheet)
+
+```
+minikube start --driver=docker
+minikube update-context
+kubectl get pods -n machina-sandbox
+kubectl logs -f -l app=fleet-api -n machina-sandbox
+kubectl apply -f k8s/
+minikube service front -n machina-sandbox --url
+```
+
+---
+
+Si tu veux, je peux te générer :
+
+* une **version PDF** de cette doc
+* une **version Markdown prête à mettre dans ton repo**
+* ou même une **doc complète Kubernetes + architecture** pour ton devoir
+
+Tu veux laquelle ? 😊
 
 Bon vol ✈️
