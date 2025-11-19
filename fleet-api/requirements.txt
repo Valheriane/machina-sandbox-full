@@ -4,6 +4,7 @@ paho-mqtt
 sqlalchemy
 pydantic
 sqlmodel
+
 pytest
 pytest-asyncio
 httpx
