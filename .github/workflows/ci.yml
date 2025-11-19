@@ -8,32 +8,31 @@ on:
 jobs:
   # 1) Tests backend (fleet-api)
   backend-tests:
-  runs-on: ubuntu-latest
-  defaults:
-    run:
-      working-directory: fleet-api
-  steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: fleet-api
+    env:
+      PYTHONPATH: ${{ github.workspace }}/fleet-api
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: "3.11"
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
-    - name: Install backend dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
+      - name: Install backend dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
-    - name: Run backend tests
-      run: |
-        echo "PWD: $(pwd)"
-        echo "PYTHONPATH before: $PYTHONPATH"
-        export PYTHONPATH="$PYTHONPATH:$(pwd)"
-        echo "PYTHONPATH after:  $PYTHONPATH"
-        pytest
-
+      - name: Run backend tests
+        run: |
+          echo "PWD: $(pwd)"
+          echo "PYTHONPATH: $PYTHONPATH"
+          pytest
 
   # 2) Build front (React / Vite)
   front-build:
