@@ -1,7 +1,11 @@
 # fleet-api/tests/test_health.py
+import os
+os.environ["DISABLE_MQTT"] = "1"   # doit être avant l'import de main
+
 import pytest
 from httpx import AsyncClient
 from main import app  # FastAPI app
+
 
 @pytest.mark.asyncio
 async def test_health():
@@ -10,6 +14,7 @@ async def test_health():
     assert resp.status_code == 200
     data = resp.json()
     assert data.get("status") == "ok"
+
 
 @pytest.mark.asyncio
 async def test_list_drones_empty_ok():

@@ -2,7 +2,7 @@
 Manager de flotte : conserve les workers (threads) en mémoire,
 et publie des commandes signées si on le souhaite (via l'API).
 """
-
+import os
 import json, time
 from typing import Dict
 import paho.mqtt.client as mqtt
@@ -15,6 +15,11 @@ class FleetManager:
         cfg = get_config()
         self.cfg = cfg
         self.workers: Dict[str, DroneWorker] = {}
+        
+        # --- NOUVEAU : flag pour désactiver MQTT en tests ---
+        if os.getenv("DISABLE_MQTT", "").lower() in {"1", "true", "yes"}:
+            print("[FleetManager] MQTT disabled via DISABLE_MQTT env var")
+            return  # on ne crée pas de client MQTT
 
         # client MQTT côté API (pour publier des commandes au besoin)
         self.client = mqtt.Client()  # paho 1.x
