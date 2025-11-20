@@ -27,7 +27,10 @@ spec:
             - name: TOPIC_PREFIX
               value: "lab"
             - name: SHARED_SECRET
-              value: "dev-secret-change-me"
+              valueFrom:
+                secretKeyRef:
+                  name: fleet-api-secret
+                  key: SHARED_SECRET
             - name: DATABASE_URL
               value: "sqlite:///data/fleet.db"
             - name: APP_ENV
