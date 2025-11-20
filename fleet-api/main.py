@@ -8,12 +8,12 @@ from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(title="Fleet API", version="0.1.0")
 
-
-
+cfg = get_config()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173","http://localhost:8085",],
+    allow_origins=cfg["cors"]["allow_origins"],
+    allow_origin_regex=cfg["cors"]["allow_origin_regex"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

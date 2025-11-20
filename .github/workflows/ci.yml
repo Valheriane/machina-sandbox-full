@@ -2,7 +2,7 @@ name: CI Machina Sandbox Full
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main, dev ]
   pull_request:
 
 jobs:
