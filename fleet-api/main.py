@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 app = FastAPI(title="Fleet API", version="0.1.0")
 
 
-app = FastAPI(title="Fleet API", version="0.1.0")
+
 
 app.add_middleware(
     CORSMiddleware,
