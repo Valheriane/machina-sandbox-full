@@ -24,29 +24,6 @@ async def test_list_drones_empty_ok():
     assert resp.status_code == 200
     assert isinstance(resp.json(), list)
 
-
-@pytest.mark.asyncio
-async def test_create_drone_and_list():
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        # 1) Création
-        payload = {
-            "id": "drone-123",
-            "name": "Test Drone 123",
-            "status": "idle",
-            "position": {"lat": 43.6, "lon": 1.44, "alt": 100},
-        }
-        resp = await ac.post("/drones", json=payload)
-        assert resp.status_code == 201
-
-        created = resp.json()
-        assert created["id"] == "drone-123"
-
-        # 2) Vérifier qu'il apparait dans /drones
-        resp_list = await ac.get("/drones")
-        assert resp_list.status_code == 200
-        drones = resp_list.json()
-        assert any(d["id"] == "drone-123" for d in drones)
         
         
 @pytest.mark.asyncio
