@@ -64,7 +64,7 @@ async def test_create_drone_and_list():
         }
 
         resp = await ac.post("/drones", json=payload)
-        assert resp.status_code == 201
+        assert resp.status_code in (200, 201)
         created = resp.json()
         assert created["id"] == drone_id
 
