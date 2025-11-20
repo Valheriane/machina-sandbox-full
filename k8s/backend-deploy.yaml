@@ -30,6 +30,14 @@ spec:
               value: "dev-secret-change-me"
             - name: DATABASE_URL
               value: "sqlite:///data/fleet.db"
+            - name: APP_ENV
+              value: "dev"
+            # CORS_ALLOWED_ORIGINS pas nécessaire en dev
+            #- name: APP_ENV
+            #  value: "prod"
+            #- name: CORS_ALLOWED_ORIGINS
+            #  value: "https://app.machina-control.com,https://machina-control.com"
+
           # (on ne met pas de volume pour le moment : DB locale dans le pod)
 
 ---
