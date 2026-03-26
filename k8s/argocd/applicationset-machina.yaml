@@ -1,0 +1,31 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: machina-sandbox
+  namespace: argocd
+spec:
+  goTemplate: true
+  generators:
+    - git:
+        repoURL: https://github.com/Valheriane/machina-sandbox-full.git
+        revision: main
+        directories:
+          - path: k8s/apps/*
+  template:
+    metadata:
+      name: '{{ .path.basename }}'
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/Valheriane/machina-sandbox-full.git
+        targetRevision: main
+        path: '{{ .path.path }}'
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: machina-sandbox
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true

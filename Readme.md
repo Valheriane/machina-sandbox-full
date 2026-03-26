@@ -1,19 +1,4 @@
-Bien sûr ! Voici une **nouvelle version complète du README**, déjà **mise à jour pour la nouvelle version de ton projet `machina-sandbox-full` avec le front**, tout en conservant l’esprit de l’ancien README.
-Elle inclut :
 
-✅ Backend (FastAPI)
-✅ Broker MQTT (Mosquitto)
-✅ Front (React + MQTT dashboard)
-✅ Commandes :
-– Lancer uniquement broker + backend
-– Lancer toute l’application (broker + backend + front)
-– Arrêter / rebuild
-– Voir les logs
-– Nettoyage
-– Sous-chapitres clairs
-– Structure du projet mise à jour
-
----
 
 # 🛠️ Machina Sandbox – Full Version (Backend + Broker + Front)
 
