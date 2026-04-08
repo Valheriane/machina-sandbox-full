@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: fleet-api
+spec:
+  selector:
+    app: fleet-api
+  ports:
+    - port: 8000
+      targetPort: 8000

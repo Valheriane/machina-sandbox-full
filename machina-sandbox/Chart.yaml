@@ -1,0 +1,9 @@
+apiVersion: v2
+name: machina-sandbox
+description: Helm chart for Machina Sandbox (MQTT + Fleet API + Frontend)
+
+type: application
+
+version: 0.1.0
+
+appVersion: "1.0.0"
