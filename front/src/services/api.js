@@ -1,5 +1,10 @@
 import axios from "axios";
 
+const runtimeApiUrl =
+  window.__APP_CONFIG__?.API_URL ||
+  import.meta.env.VITE_API_URL ||
+  "http://localhost:8000";
+
 const API = axios.create({
   baseURL: import.meta.env.VITE_API_URL || "http://localhost:8000",
   timeout: 10000,

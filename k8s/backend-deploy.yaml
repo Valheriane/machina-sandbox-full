@@ -33,12 +33,10 @@ spec:
             - name: APP_ENV
               value: "dev"
             # CORS_ALLOWED_ORIGINS pas nécessaire en dev
-            #- name: APP_ENV
-            #  value: "prod"
-            #- name: CORS_ALLOWED_ORIGINS
-            #  value: "https://app.machina-control.com,https://machina-control.com"
-
-          # (on ne met pas de volume pour le moment : DB locale dans le pod)
+            # - name: APP_ENV
+            #   value: "prod"
+            # - name: CORS_ALLOWED_ORIGINS
+            #   value: "https://app.machina-control.com,https://machina-control.com"
 
 ---
 apiVersion: v1
@@ -49,8 +47,9 @@ metadata:
 spec:
   selector:
     app: fleet-api
+  type: NodePort
   ports:
     - name: http
       port: 8000
       targetPort: 8000
-  type: ClusterIP
+      nodePort: 30800

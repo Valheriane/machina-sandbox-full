@@ -19,7 +19,11 @@ if (typeof connectFn !== 'function') {
   throw new Error('MQTT connect() non trouvé (vérifie la version du paquet).');
 }
 
-const WS_URL = import.meta.env.VITE_MQTT_WS_URL || 'ws://localhost:9001';
+//const WS_URL = import.meta.env.VITE_MQTT_WS_URL || 'ws://localhost:9001';
+const WS_URL =
+  window.__APP_CONFIG__?.MQTT_WS_URL ||
+  import.meta.env.VITE_MQTT_WS_URL ||
+  'ws://localhost:9001';
 
 let client;
 function ensureClient() {

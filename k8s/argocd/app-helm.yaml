@@ -7,14 +7,14 @@ spec:
   project: default
   source:
     repoURL: https://github.com/Valheriane/machina-sandbox-full.git
-    targetRevision: main
+    targetRevision: dev
     path: machina-sandbox
     helm:
       valueFiles:
         - values.yaml
   destination:
     server: https://kubernetes.default.svc
-    namespace: machina-helm-argocd
+    namespace: machina-helm-test
   syncPolicy:
     automated:
       prune: true
