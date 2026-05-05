@@ -31,7 +31,7 @@ services:
       context: ./front
       dockerfile: Dockerfile
     ports:
-      - "8087:80"         # front dispo sur http://localhost:8085
+      - "8085:80"         # front dispo sur http://localhost:8085
     depends_on:
       - fleet-api
       - broker

@@ -1,0 +1,29 @@
+broker:
+  replicas: 1
+  image:
+    repository: eclipse-mosquitto
+    tag: "2"
+    pullPolicy: IfNotPresent
+
+fleetApi:
+  replicas: 2
+  image:
+    repository: fleet-api
+    tag: latest
+    pullPolicy: Never
+  env:
+    mqttHost: broker
+    mqttPort: "1883"
+    topicPrefix: lab
+    sharedSecret: dev-secret-change-me
+    databaseUrl: sqlite:///data/fleet.db
+
+front:
+  replicas: 2
+  image:
+    repository: front
+    tag: latest
+    pullPolicy: Never
+  env:
+    mqttUrl: ws://broker:9001
+    apiBase: http://fleet-api:8000

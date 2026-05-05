@@ -1,723 +1,595 @@
 
+# Machina Sandbox Full
 
-# 🛠️ Machina Sandbox – Full Version (Backend + Broker + Front)
+Projet bac à sable pour expérimenter une application distribuée autour de **MachinaControl** avec :
 
-Ce dépôt contient un **bac à sable complet pour tester la communication machine-to-machine (M2M)** autour d’un drone virtuel :
-
-* **Broker MQTT** (Mosquitto)
-* **Backend API** (FastAPI + SQLModel)
-* **Frontend React** : dashboard pour visualiser les drones, éditer, écouter la télémétrie et envoyer des commandes.
-
-Pensé comme base pour le projet *MachinaControl*.
+- un **broker MQTT** (Mosquitto)
+- une **API backend**
+- un **frontend**
+- un déploiement **Docker / Kubernetes / Helm**
+- une supervision avec **Prometheus, Grafana et Loki**
+- une logique **GitOps** via **Argo CD**
 
 ---
 
-# 📁 1) Structure du projet
+## 1. Objectif du projet
 
-```
+Ce dépôt sert de terrain d’expérimentation pour :
+
+- déployer une application conteneurisée
+- l’orchestrer avec Kubernetes
+- la packager avec Helm
+- superviser métriques et logs
+- structurer un déploiement GitOps
+
+---
+
+## 2. Architecture générale
+
+Le projet contient plusieurs briques :
+
+- **Broker MQTT** : communication machine-to-machine
+- **Backend** : logique applicative / API
+- **Frontend** : interface utilisateur
+- **Kubernetes** : orchestration des services
+- **Helm** : packaging de l’application
+- **Prometheus** : collecte des métriques
+- **Grafana** : visualisation
+- **Loki** : centralisation des logs
+- **Argo CD** : synchronisation GitOps
+
+---
+
+## 3. Structure du projet
+
+```text
 machina-sandbox-full/
-├─ docker-compose.yml
-├─ README.md
-│
-├─ broker/
-│   └─ mosquitto.conf
-│
-├─ backend/
-│   ├─ main.py
-│   ├─ models.py
-│   ├─ routes/
-│   ├─ Dockerfile
-│   └─ requirements.txt
-│
-├─ agents/
-│   └─ drone/
-│       ├─ drone_agent.py
-│       ├─ sim_models.py
-│       ├─ config.py
-│       ├─ security.py
-│       └─ Dockerfile
-│
-└─ front/
-    ├─ src/
-    ├─ public/
-    ├─ Dockerfile
-    └─ vite.config.js
-```
+├── .github/
+│   └── workflows/
+├── agents/
+├── broker/
+├── fleet-api/
+├── front/
+├── k8s/
+│   ├── argocd/
+│   ├── backend-deploy.yaml
+│   ├── broker-deploy.yaml
+│   ├── front-deploy.yaml
+│   ├── loki-values.yaml
+│   └── namespace.yaml
+├── machina-sandbox/
+│   ├── charts/
+│   ├── templates/
+│   ├── Chart.yaml
+│   └── values.yaml
+├── scripts/
+│   ├── restart-project.sh
+│   ├── check-project.sh
+│   ├── open-grafana.sh
+│   └── check-monitoring.sh
+├── docker-compose.yml
+└── README.md
+````
 
 ---
 
-# 🚀 2) Pré-requis
+## 4. Pré-requis
 
-* **Docker Desktop** (Compose v2)
-* **Python 3.11** si tu veux aussi piloter les drones avec un script local
-* **Node.js ≥ 18** (uniquement si tu veux lancer le front hors Docker)
+Avant de lancer le projet, vérifier que les outils suivants sont installés :
+
+* **Docker**
+* **kubectl**
+* **Helm**
+* **Minikube**
+* **Git**
+
+Optionnel selon usage :
+
+* **Node.js** pour lancer le front hors Docker
+* **Python 3.11+** pour certains scripts/outils
 
 ---
 
-# 📦 3) Commandes Docker
+## 5. Lancement local avec Docker
 
-### ➤ Vérifier la configuration
+### Vérifier la configuration
 
-```
+```bash
 docker compose config
 ```
 
----
+### Lancer toute l’application
 
-# ▶️ 4) Lancer l’application
-
-## **A) Lancer uniquement le broker + backend**
-
-(idéal si tu testes l’API ou des agents MQTT)
-
-```
-docker compose up --build broker backend
-```
-
-Accès :
-
-* **API** → [http://localhost:8000](http://localhost:8000)
-* **Broker MQTT** → `localhost:1883` (non sécurisé)
-
----
-
-## **B) Lancer l’intégralité : broker + backend + front**
-
-```
+```bash
 docker compose up --build
 ```
 
-Accès :
+### Lancer uniquement broker + backend
 
-* **Frontend React** → [http://localhost:5173](http://localhost:5173)
-* **Backend API** → [http://localhost:8000](http://localhost:8000)
-* **Broker MQTT** → `localhost:1883`
-
----
-
-# 🧹 5) Arrêter / nettoyer
-
-### Arrêter les services :
-
+```bash
+docker compose up --build broker backend
 ```
+
+### Arrêter
+
+```bash
 docker compose down
 ```
 
-### Détruire tout + volumes :
+### Arrêter et supprimer les volumes
 
-```
+```bash
 docker compose down -v
 ```
 
-### Rebuild complet :
+### Rebuild complet
 
-```
+```bash
 docker compose up --build --force-recreate
 ```
 
 ---
 
-# 📜 6) Logs utiles
+## 6. Déploiement Kubernetes / Minikube
 
-### Logs du broker (Mosquitto)
+### Démarrer Minikube
 
-```
-docker logs -f mqtt-broker
-```
-
-### Logs du backend
-
-```
-docker logs -f backend
+```bash
+minikube start
 ```
 
-### Logs du front
+### Vérifier le cluster
 
-```
-docker logs -f front
-```
-
-### Logs du drone agent
-
-```
-docker logs -f agent-drone-1
-```
-
----
-
-# 🔍 7) Inspecter le broker (débug MQTT)
-
-Entrer dans le conteneur :
-
-```
-docker exec -it mqtt-broker sh
-```
-
-Ecouter tous les messages :
-
-```
-mosquitto_sub -h localhost -p 1883 -t '#' -v
-```
-
-Télémétrie (exemple drone-101) :
-
-```
-mosquitto_sub -t 'lab/drone/drone-101/telemetry' -v
-```
-
-Envoyer un message de test :
-
-```
-mosquitto_pub -t 'test' -m 'hello'
-```
-
----
-
-# ✈️ 8) Piloter les drones (script Python local)
-
-Installer la lib côté host :
-
-```
-pip install paho-mqtt
-```
-
-Exemple (ping) :
-
-```
-python tools/sign_and_send_paho.py --cmd ping
-```
-
-Autres commandes disponibles :
-
-* `--cmd takeoff --alt 20`
-* `--cmd goto --lat 43.610 --lon 3.87 --alt 15`
-* `--cmd land`
-* `--cmd rth`
-
----
-
-# 🌐 9) Frontend (React)
-
-Le front se connecte automatiquement au broker via WebSockets (port **9001** exposé par Mosquitto).
-
-Fonctionnalités :
-
-* Liste des drones
-* Affichage position (lat/lon/alt)
-* Statut / vitesse / batterie
-* Historique
-* Édition d’un drone
-* Envoi de commandes (via API ou MQTT direct)
-
-Si tu veux lancer le front hors Docker :
-
-```
-cd front
-npm install
-npm run dev
-```
-
----
-
-# ⚙️ 10) Variables d’environnement importantes
-
-### Backend
-
-* `MQTT_HOST=broker`
-* `MQTT_PORT=1883`
-* `DATABASE_URL=sqlite:///db.sqlite` (ou PostgreSQL dans une version avancée)
-
-### Agents drones
-
-* `DRONE_ID=drone-101`
-* `TOPIC_PREFIX=lab`
-* `SHARED_SECRET=supersecret`
-* `START_LAT=43.61`
-* `START_LON=3.87`
-
-### Front
-
-* `VITE_MQTT_HOST=localhost`
-* `VITE_MQTT_PORT=9001`
-
----
-
-
-
-
-# README — Machina Sandbox (Drone Simulator)
-
-Ce README rassemble **les commandes utiles** pour lancer, observer et piloter le simulateur de drone via Docker/MQTT, avec **le contexte d’exécution** de chaque commande :
-
-* **[HOST]** = à exécuter **sur l’hôte Windows** dans PowerShell (`PS C:\machina-sandbox>`)
-* **[BROKER]** = à exécuter **dans le conteneur broker** (après `docker exec -it mqtt-broker sh`)
-
----
-
-
-
----
-
-## 2) Démarrer / arrêter l’environnement Docker
-
-Valider la config :
-
-```
-[HOST] docker compose config
-```
-
-Lancer (build + run) :
-
-```
-[HOST] docker compose up --build
-```
-
-Voir les conteneurs qui tournent :
-
-```
-[HOST] docker ps
-```
-
-Suivre les logs :
-
-```
-[HOST] docker logs -f mqtt-broker
-[HOST] docker logs -f agent-drone-1
-```
-
-Arrêter + supprimer (avec volumes) :
-
-```
-[HOST] docker compose down -v
-```
-
-> Note : l’avertissement `the attribute version is obsolete` peut être ignoré (retirez `version:` du YAML si présent).
-
----
-
-## 3) Observer les messages MQTT
-
-Entrer dans le conteneur du broker :
-
-```
-[HOST] docker exec -it mqtt-broker sh
-```
-
-Abonnement “attrape-tout” (debug) :
-
-```
-[BROKER] mosquitto_sub -h localhost -p 1883 -t '#' -v
-```
-
-Uniquement télémétrie du drone :
-
-```
-[BROKER] mosquitto_sub -h localhost -p 1883 -t 'lab/drone/drone-001/telemetry' -v
-```
-
-Événements du drone (ex: pong) :
-
-```
-[BROKER] mosquitto_sub -h localhost -p 1883 -t 'lab/drone/drone-001/events' -v
-```
-
-Message de test manuel :
-
-```
-[BROKER] mosquitto_pub -h localhost -p 1883 -t lab/test -m "hello"
-```
-
----
-
-## 4) Piloter le drone (script côté host)
-
-Le drone **écoute** les commandes sur : `lab/drone/drone-001/commands`.
-Les commandes sont **signées HMAC** (le script s’en charge) et le drone publie sa **télémétrie** en continu sur : `lab/drone/drone-001/telemetry`.
-
-Script client (sur host) : `tools/sign_and_send_paho.py`
-
-### Commandes courantes
-
-```
-[HOST] py .\tools\sign_and_send_paho.py --cmd ping
-[HOST] py .\tools\sign_and_send_paho.py --cmd takeoff --alt 20
-[HOST] py .\tools\sign_and_send_paho.py --cmd goto --lat 43.611 --lon 3.877 --alt 20
-[HOST] py .\tools\sign_and_send_paho.py --cmd rth
-[HOST] py .\tools\sign_and_send_paho.py --cmd land
-```
-
-Effets attendus :
-
-* `ping` → event `pong` sur `.../events`
-* `takeoff --alt 20` → `status: flying`, `alt ≈ 20`
-* `goto` → `position.lat/lon` change progressivement, `status: flying` puis `idle` à l’arrivée
-* `rth` → retour au point de départ
-* `land` → `alt: 0`, `status: landing/idle`
-
-> Remarque : un warning `DeprecationWarning: Callback API version 1...` peut s’afficher côté host. Il est sans impact (paho 1.x). On pourra migrer en paho 2.x plus tard.
-
----
-
-## 5) Variables d’environnement importantes (dans docker-compose.yml)
-
-* `DRONE_ID` : identifiant (inclus dans les topics)
-* `TOPIC_PREFIX` : racine des topics (ex: `lab`)
-* `MQTT_HOST`, `MQTT_PORT` : broker (dans Docker, `MQTT_HOST=broker`)
-* `PUBLISH_INTERVAL_SEC` : période de publication de la télémétrie
-* `SHARED_SECRET` : secret HMAC (doit **matcher** `SECRET` dans `sign_and_send_paho.py`)
-* `START_LAT`, `START_LON`, `START_ALT` : point de départ
-
----
-
-## 6) Dépannage rapide (FAQ)
-
-**Q: Je ne vois rien en écoutant la télémétrie.**
-R: Vérifie le bon contexte : abonne-toi **dans le broker** (`docker exec -it mqtt-broker sh`) et écoute `'#'` pour tout voir. Vérifie aussi les variables (`DRONE_ID`, `TOPIC_PREFIX`).
-
-**Q: “Signature invalid — command rejected”.**
-R: Le `SECRET` côté host doit être identique à `SHARED_SECRET` côté compose. Le script s’occupe du format JSON correct.
-
-**Q: Le broker affiche `chown ... Read-only file system`.**
-R: Warning inoffensif (montage en lecture seule). Pour le supprimer, retire `:ro` sur le volume `mosquitto.conf`.
-
-**Q: Les commandes partent mais rien ne bouge.**
-R: Regarde `docker logs -f agent-drone-1` (tu dois voir `[CMD] ...`). Active le debug publication dans `drone_agent.py` (print `[TX]`) si besoin, puis rebuild.
-
----
-
-## 7) Ajouts rapides
-
-### Ajouter un 2ᵉ drone
-
-* Dupliquer le service `drone1` → `drone2` dans `docker-compose.yml`, changer `container_name`, `DRONE_ID` (ex: `drone-002`) et éventuellement `START_LAT/LON`.
-* Rebuild & run : `[HOST] docker compose up --build`
-* Topics du 2ᵉ drone : `lab/drone/drone-002/...`
-
-### Piloter via HTTP (option)
-
-Un petit **bridge FastAPI** peut exposer `POST /cmd` (REST) → signe et publie sur MQTT. Idéal pour éviter le script côté client.
-
----
-
-## 8) Références de topics (par défaut)
-
-* Commandes → `lab/drone/drone-001/commands`
-* Télémétrie ← `lab/drone/drone-001/telemetry`
-* Événements ← `lab/drone/drone-001/events`
-
-> Modifiez `TOPIC_PREFIX` et/ou `DRONE_ID` pour changer ces chemins.
-
----
-
-## 9) Commandes Docker utiles (mémo)
-
-```
-[HOST] docker compose config
-[HOST] docker compose up --build
-[HOST] docker compose down -v
-[HOST] docker ps
-[HOST] docker logs -f mqtt-broker
-[HOST] docker logs -f agent-drone-1
-[HOST] docker exec -it mqtt-broker sh
-docker compose config
-docker compose up --build
-docker compose up --build backend broker
-docker compose down
-docker compose down -v
-docker ps
-docker logs -f backend
-docker exec -it mqtt-broker sh
-```
-# 🛠️ 11) Commandes Docker (résumé mémo)
-
-```
-docker compose config
-docker compose up --build
-docker compose up --build backend broker
-docker compose down
-docker compose down -v
-docker ps
-docker logs -f backend
-docker exec -it mqtt-broker sh
-```
-Bien sûr ! Voici une **documentation claire, courte et propre**, idéale pour ton projet ou pour expliquer à quelqu’un comment utiliser **Minikube + Kubernetes** pour lancer/relancer ton cluster, gérer les pods et débugger avec les logs.
-
-Tu peux la mettre dans ton repo GitHub sous `docs/kubernetes.md` si tu veux 😉
-
----
-
-# 📘 Documentation Express – Minikube & Kubernetes pour Machina Sandbox
-
-## 🟦 1. Lancer ou relancer Minikube
-
-### 👉 Démarrer Minikube
-
-```powershell
-minikube start --driver=docker
-```
-
-Cette commande :
-
-* crée le cluster si ce n’est pas fait
-* démarre kubelet + API server
-* configure kubectl automatiquement
-
----
-
-### 👉 Vérifier l'état de Minikube
-
-```powershell
-minikube status
-```
-
-Résultat attendu :
-
-```
-host: Running
-kubelet: Running
-apiserver: Running
-kubeconfig: Configured
-```
-
----
-
-### 👉 Si `kubectl` n’arrive pas à se connecter
-
-(Recommandation directe de Minikube)
-
-```
-minikube update-context
-```
-
----
-
-### 👉 Redémarrer proprement le cluster
-
-```powershell
-minikube stop
-minikube start --driver=docker
-```
-
----
-
-### ❗ Si le cluster est vraiment cassé (après un crash PC par exemple)
-
-⚠️ Cela supprime le cluster mais PAS tes manifests :
-
-```powershell
-minikube delete
-minikube start --driver=docker
-minikube update-context
-```
-
-Ensuite réapplique tes YAML (voir section 3).
-
----
-
-## 🟩 2. Voir l'état des pods et services
-
-### 👉 Voir tous les pods (tous namespaces)
-
-```powershell
-kubectl get pods -A
-```
-
-### 👉 Voir les pods de ton namespace (machina-sandbox)
-
-```powershell
-kubectl get pods -n machina-sandbox
-```
-
-Exemple de sortie :
-
-```
-broker-xxx        Running
-fleet-api-yyy     Running
-front-zzz         Running
-```
-
----
-
-### 👉 Voir les services
-
-```powershell
-kubectl get svc -n machina-sandbox
-```
-
----
-
-### 👉 Voir les nodes Kubernetes
-
-```powershell
+```bash
+kubectl cluster-info
 kubectl get nodes
+kubectl get ns
 ```
 
----
+### Réappliquer les manifests Kubernetes
 
-## 🟧 3. (Re)déployer ton application
-
-À chaque modification dans tes YAML :
-
-```powershell
+```bash
 kubectl apply -f k8s/
 ```
 
 Ou fichier par fichier :
 
-```powershell
+```bash
+kubectl apply -f k8s/namespace.yaml
 kubectl apply -f k8s/broker-deploy.yaml
 kubectl apply -f k8s/backend-deploy.yaml
 kubectl apply -f k8s/front-deploy.yaml
 ```
 
----
+### Vérifier les pods applicatifs
 
-## 🟨 4. Modifier le nombre de pods (replicas)
-
-### 👉 Méthode A — modifier directement dans le fichier deploy.yaml
-
-```yaml
-spec:
-  replicas: 2
-```
-
-Puis réappliquer :
-
-```powershell
-kubectl apply -f k8s/backend-deploy.yaml
+```bash
+kubectl get pods -n machina-sandbox
+kubectl get svc -n machina-sandbox
 ```
 
 ---
 
-### 👉 Méthode B — changer à la volée (test rapide)
+## 7. Déploiement Helm
 
-```powershell
-kubectl scale deployment fleet-api --replicas=2 -n machina-sandbox
-kubectl scale deployment front --replicas=1 -n machina-sandbox
-kubectl scale deployment broker --replicas=1 -n machina-sandbox
+Le chart Helm principal de l’application se trouve dans :
+
+```text
+machina-sandbox/
+```
+
+### Installer le chart en test
+
+```bash
+helm install machina-test ./machina-sandbox -n machina-helm-test
+```
+
+### Vérifier les releases Helm
+
+```bash
+helm list -A
 ```
 
 ---
 
-## 🟦 5. Accéder au front depuis Minikube
+## 8. Supervision
 
-### 👉 La méthode recommandée
+La supervision a été mise en place dans le namespace :
 
-```powershell
-minikube service front -n machina-sandbox --url
+```text
+monitoring
 ```
 
-Cela retourne une URL du type :
+Elle inclut :
 
+* **Prometheus**
+* **Grafana**
+* **Loki**
+
+### Ajouter les repositories Helm
+
+```bash
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo add grafana https://grafana.github.io/helm-charts
+helm repo update
 ```
-http://127.0.0.1:31140
+
+### Créer le namespace monitoring
+
+```bash
+kubectl create namespace monitoring
+```
+
+### Installer Prometheus + Grafana
+
+```bash
+helm install monitoring prometheus-community/kube-prometheus-stack -n monitoring
+```
+
+### Installer Loki
+
+```bash
+helm install loki grafana/loki -n monitoring -f k8s/loki-values.yaml
+```
+
+### Vérifier les composants monitoring
+
+```bash
+kubectl get pods -n monitoring
+kubectl get svc -n monitoring
+helm list -n monitoring
 ```
 
 ---
 
-### 👉 Accès direct via NodePort
+## 9. Accéder à Grafana
 
-(Résultat de `kubectl get svc`)
+### Lancer le port-forward
 
+```bash
+kubectl port-forward svc/monitoring-grafana 3000:80 -n monitoring
 ```
-http://localhost:<nodePort>
+
+### URL d’accès
+
+```text
+http://localhost:3000
+```
+
+### Récupérer le mot de passe admin
+
+```bash
+kubectl get secret -n monitoring monitoring-grafana -o jsonpath="{.data.admin-password}" | base64 -d ; echo
 ```
 
 ---
 
-## 🟥 6. Voir les logs (debug essentiel)
+## 10. Sources de données Grafana
 
-### 👉 Voir les logs d’un pod spécifique
+### Prometheus
 
-Backend :
+URL utilisée :
 
-```powershell
-kubectl logs -f -l app=fleet-api -n machina-sandbox
+```text
+http://monitoring-kube-prometheus-prometheus.monitoring:9090
 ```
 
-Broker :
+### Loki
 
-```powershell
+URL utilisée :
+
+```text
+http://loki-gateway.monitoring.svc.cluster.local/
+
+
+http://loki.monitoring.svc.cluster.local:3100
+```
+
+---
+
+## 11. Dashboard Grafana
+
+Le projet inclut :
+
+* les dashboards Kubernetes provisionnés automatiquement par `kube-prometheus-stack`
+* un dashboard personnalisé de supervision Machina
+
+Exemples d’indicateurs affichés :
+
+* usage CPU du nœud
+* usage mémoire du nœud
+* pods Machina actifs
+* nombre total de pods
+* pods par namespace
+* pods problématiques
+* mémoire par namespace
+
+---
+
+## 12. Scripts utilitaires
+
+Pour simplifier la reprise du projet, plusieurs scripts Bash ont été ajoutés.
+
+### 12.1 Relancer l’environnement
+
+```bash
+./scripts/restart-project.sh
+```
+
+Ce script :
+
+* vérifie la présence de `minikube`, `kubectl`, `helm`, `docker`
+* démarre Minikube
+* vérifie le cluster Kubernetes
+* affiche les nœuds
+* affiche les namespaces
+* affiche les releases Helm
+* affiche les pods et services monitoring
+* affiche les pods applicatifs
+* affiche le mot de passe Grafana
+
+---
+
+### 12.2 Audit complet du projet
+
+```bash
+./scripts/check-project.sh
+```
+
+Ce script vérifie :
+
+* outils installés
+* état de Minikube
+* état du cluster
+* namespaces attendus
+* releases Helm
+* stack monitoring
+* application métier
+* Argo CD
+* Docker
+
+Il fournit aussi un résumé final avec :
+
+* OK
+* WARN
+* ERROR
+
+---
+
+### 12.3 Vérification rapide de la supervision
+
+```bash
+./scripts/check-monitoring.sh
+```
+
+Ce script affiche :
+
+* pods monitoring
+* services monitoring
+* releases Helm monitoring
+* pods Loki
+* pods Prometheus
+* pods Grafana
+
+---
+
+### 12.4 Ouvrir Grafana
+
+```bash
+./scripts/open-grafana.sh
+```
+
+---
+
+## 13. Logs utiles
+
+### Broker
+
+```bash
+docker logs -f mqtt-broker
+```
+
+### Backend
+
+```bash
+docker logs -f backend
+```
+
+### Front
+
+```bash
+docker logs -f front
+```
+
+### Broker MQTT dans Kubernetes
+
+```bash
 kubectl logs -f -l app=broker -n machina-sandbox
 ```
 
-Front :
+### Backend dans Kubernetes
 
-```powershell
+```bash
+kubectl logs -f -l app=fleet-api -n machina-sandbox
+```
+
+### Front dans Kubernetes
+
+```bash
 kubectl logs -f -l app=front -n machina-sandbox
 ```
 
-### 👉 Voir les logs d’un POD précis (nom complet)
+---
 
-```powershell
-kubectl logs -f fleet-api-55c4c9c8dd-6pgfs -n machina-sandbox
+## 14. Debug Kubernetes
+
+### Voir tous les pods
+
+```bash
+kubectl get pods -A
+```
+
+### Voir les services
+
+```bash
+kubectl get svc -A
+```
+
+### Décrire un pod
+
+```bash
+kubectl describe pod <pod-name> -n <namespace>
+```
+
+### Voir les événements
+
+```bash
+kubectl get events -n <namespace> --sort-by=.metadata.creationTimestamp
+```
+
+### Redémarrer un déploiement
+
+```bash
+kubectl rollout restart deployment <deployment-name> -n <namespace>
 ```
 
 ---
 
-## 🟫 7. Debug MQTT : se connecter dans le pod Mosquitto
+## 15. Debug MQTT
 
-### 👉 Entrer dans le pod
+Entrer dans le conteneur broker :
 
-```powershell
-kubectl exec -it <broker-pod-name> -n machina-sandbox -- sh
+```bash
+docker exec -it mqtt-broker sh
 ```
 
-### 👉 Écouter tous les topics
+Écouter tous les topics :
 
-```sh
-mosquitto_sub -t "#" -v
+```bash
+mosquitto_sub -h localhost -p 1883 -t '#' -v
 ```
 
-### 👉 Publier un message test
+Publier un message de test :
 
-```sh
-mosquitto_pub -t "lab/test" -m "hello"
-```
-
----
-
-## 🟧 8. Astuces utiles
-
-### 👉 Redémarrer un déploiement (reload image / env)
-
-```powershell
-kubectl rollout restart deployment fleet-api -n machina-sandbox
-```
-
-### 👉 Voir les events Kubernetes
-
-```powershell
-kubectl get events -n machina-sandbox --sort-by=.metadata.creationTimestamp
-```
-
-### 👉 Diagnostiquer un pod qui ne démarre pas
-
-```powershell
-kubectl describe pod <pod-name> -n machina-sandbox
+```bash
+mosquitto_pub -h localhost -p 1883 -t test -m "hello"
 ```
 
 ---
 
-# 🎯 Résumé rapide (cheat-sheet)
+## 16. GitOps
 
+Le projet utilise Argo CD pour expérimenter une approche GitOps.
+
+### Principe
+
+Le dépôt Git devient la source de vérité :
+
+* manifests Kubernetes
+* configuration Argo CD
+* chart Helm
+* fichiers de valeurs
+* scripts d’exploitation
+
+### Intérêt du GitOps dans le projet
+
+* centraliser la configuration
+* tracer les modifications
+* simplifier les redéploiements
+* rendre l’infrastructure reproductible
+* faciliter l’audit et la maintenance
+
+---
+
+## 17. Points d’attention
+
+* En environnement **Minikube**, certains pods peuvent parfois rester en `Pending` sans bloquer totalement le projet.
+* La supervision fonctionne tant que le cluster Minikube existe.
+* Quitter la conversation ou fermer l’éditeur ne supprime pas Grafana.
+* En revanche, un `minikube delete` supprime le cluster local et donc les ressources déployées.
+
+---
+
+## 18. Commandes utiles — mémo rapide
+
+### Relance projet
+
+```bash
+./scripts/restart-project.sh
 ```
-minikube start --driver=docker
-minikube update-context
-kubectl get pods -n machina-sandbox
-kubectl logs -f -l app=fleet-api -n machina-sandbox
-kubectl apply -f k8s/
-minikube service front -n machina-sandbox --url
+
+### Audit projet
+
+```bash
+./scripts/check-project.sh
+```
+
+### Ouvrir Grafana
+
+```bash
+./scripts/open-grafana.sh
+```
+
+### Vérifier la supervision
+
+```bash
+./scripts/check-monitoring.sh
+```
+
+### Démarrer Minikube
+
+```bash
+minikube start
+```
+
+### Voir les pods monitoring
+
+```bash
+kubectl get pods -n monitoring
+```
+
+### Voir les services monitoring
+
+```bash
+kubectl get svc -n monitoring
 ```
 
 ---
 
-Si tu veux, je peux te générer :
+## 19. État actuel du projet
 
-* une **version PDF** de cette doc
-* une **version Markdown prête à mettre dans ton repo**
-* ou même une **doc complète Kubernetes + architecture** pour ton devoir
+À ce stade, le projet permet déjà de démontrer :
 
-Tu veux laquelle ? 😊
+* conteneurisation avec Docker
+* orchestration avec Kubernetes
+* packaging avec Helm
+* supervision métrique avec Prometheus + Grafana
+* intégration de Loki pour les logs
+* scripts de relance et d’audit
+* début d’approche GitOps avec Argo CD
 
-Bon vol ✈️
+---
+
+## 20. Pistes d’amélioration
+
+* structurer davantage les fichiers de supervision dans `k8s/monitoring/`
+* ajouter `prometheus-values.yaml` et `grafana-values.yaml`
+* affiner la collecte de logs avec Promtail
+* ajouter un `Makefile`
+* améliorer la partie GitOps de la supervision
+* enrichir le dashboard Grafana avec des indicateurs plus orientés Green IT
+
+---
+
+## 21. Auteur
+
+Projet réalisé dans le cadre d’un bac à sable personnel autour de MachinaControl, pour expérimenter :
+
+* Kubernetes
+* Helm
+* observabilité
+* GitOps
+* supervision d’une application distribuée
+
+```
+
