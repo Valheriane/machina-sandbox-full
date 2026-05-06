@@ -1,9 +1,5 @@
-"""
-Manager de flotte : conserve les workers (threads) en mémoire,
-et publie des commandes signées si on le souhaite (via l'API).
-"""
 import os
-import json, time
+import json
 from typing import Dict
 import paho.mqtt.client as mqtt
 from security import sign
@@ -15,20 +11,25 @@ class FleetManager:
         cfg = get_config()
         self.cfg = cfg
         self.workers: Dict[str, DroneWorker] = {}
-        
-        # --- NOUVEAU : flag pour désactiver MQTT en tests ---
+        self.client = None
+
         if os.getenv("DISABLE_MQTT", "").lower() in {"1", "true", "yes"}:
             print("[FleetManager] MQTT disabled via DISABLE_MQTT env var")
-            return  # on ne crée pas de client MQTT
+            return
 
-        # client MQTT côté API (pour publier des commandes au besoin)
-        self.client = mqtt.Client()  # paho 1.x
-        self.client.connect(cfg["mqtt"]["host"], cfg["mqtt"]["port"], keepalive=15)
-        self.client.loop_start()
+        try:
+            self.client = mqtt.Client()
+            self.client.connect(cfg["mqtt"]["host"], cfg["mqtt"]["port"], keepalive=15)
+            self.client.loop_start()
+            print(f"[FleetManager] MQTT connected to {cfg['mqtt']['host']}:{cfg['mqtt']['port']}")
+        except Exception as e:
+            print(f"[FleetManager] MQTT unavailable at startup: {e}")
+            self.client = None
 
     def ensure_worker(self, drone) -> DroneWorker:
         if drone.id in self.workers and self.workers[drone.id].is_running():
             return self.workers[drone.id]
+
         w = DroneWorker(
             drone_id=drone.id,
             topic_prefix=drone.topic_prefix,
@@ -56,10 +57,9 @@ class FleetManager:
             w.stop()
 
     def publish_cmd(self, topic_prefix: str, drone_id: str, payload: dict):
-        """
-        Publie une commande signée sur le topic MQTT du drone.
-        Utilisé par l'endpoint POST /drones/{id}/cmd pour que le front n'ait pas à signer.
-        """
+        if self.client is None:
+            raise RuntimeError("MQTT client not connected")
+
         sig = sign(payload, self.cfg["shared_secret"])
         envelope = {"sig": sig, "payload": payload}
         topic = f"{topic_prefix}/drone/{drone_id}/commands"

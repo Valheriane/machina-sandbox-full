@@ -15,13 +15,13 @@ spec:
     spec:
       containers:
         - name: fleet-api
-          image: fleet-api:latest
+          image: fleet-api:fix-cors
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8000
           env:
             - name: MQTT_HOST
-              value: broker
+              value: broker.machina-sandbox.svc.cluster.local
             - name: MQTT_PORT
               value: "1883"
             - name: TOPIC_PREFIX

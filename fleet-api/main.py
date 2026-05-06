@@ -12,8 +12,12 @@ cfg = get_config()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=cfg["cors"]["allow_origins"],
-    allow_origin_regex=cfg["cors"]["allow_origin_regex"],
+    #allow_origins=cfg["cors"]["allow_origins"],
+    #allow_origin_regex=cfg["cors"]["allow_origin_regex"],
+    allow_origins=[
+        "http://192.168.49.2:30785",
+        "http://localhost:30785",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
