@@ -1,4 +1,3 @@
-//App.jsx
 import { useState } from "react";
 import DroneForm from "./components/DroneForm";
 import DroneTable from "./components/DroneTable";
@@ -7,12 +6,21 @@ import MapPanel from "./components/MapPanel";
 
 export default function App() {
   const [selected, setSelected] = useState("");
-  const [refreshKey, setRefreshKey] = useState(0); // <- clé de rafraîchissement
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const apiUrl =
+    window.__APP_CONFIG__?.API_URL ||
+    import.meta.env.VITE_API_URL ||
+    "http://localhost:8000";
+
+  const mqttUrl =
+    window.__APP_CONFIG__?.MQTT_WS_URL ||
+    import.meta.env.VITE_MQTT_WS_URL ||
+    "ws://localhost:9001";
 
   const handleCreated = () => {
-    setRefreshKey(prev => prev + 1); // incrémente → force le DroneTable à se recharger
+    setRefreshKey((prev) => prev + 1);
   };
-  
 
   return (
     <div className="app-shell">
@@ -26,18 +34,15 @@ export default function App() {
           <div className="header__title">
             <h1>Machina — <span>Fleet Dashboard</span></h1>
             <div className="header__meta">
-              API: {import.meta.env.VITE_API_URL}
-              {" · "}
-              MQTT WS: {import.meta.env.VITE_MQTT_WS_URL}
+              API: {apiUrl} {" · "} MQTT WS: {mqttUrl}
             </div>
           </div>
         </div>
       </header>
+
       <main className="p-6 grid lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
-          {/* Passe bien la callback */}
           <DroneForm onCreated={handleCreated} />
-          {/* Passe le signal de refresh */}
           <DroneTable refresh={refreshKey} onSelect={setSelected} />
         </div>
         <div>
