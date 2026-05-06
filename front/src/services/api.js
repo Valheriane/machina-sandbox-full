@@ -6,7 +6,7 @@ const runtimeApiUrl =
   "http://localhost:8000";
 
 const API = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "http://localhost:8000",
+  baseURL: runtimeApiUrl,
   timeout: 10000,
 });
 
@@ -18,6 +18,4 @@ export const sendCmd     = (id, cmd, args) =>
   API.post(`/drones/${id}/cmd`, { cmd, args }).then(r => r.data);
 
 export const deleteDrone = (id) => API.delete(`/drones/${id}`).then(r => r.data);
-
 export const updateDrone = (id, data) => API.patch(`/drones/${id}`, data).then(r => r.data);
-
