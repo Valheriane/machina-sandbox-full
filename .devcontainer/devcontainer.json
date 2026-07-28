@@ -19,7 +19,8 @@
       "helm": "latest",
       "minikube": "none"
     },
-    "ghcr.io/gickis/devcontainer-features/kubeconform:1": {}
+    "ghcr.io/gickis/devcontainer-features/kubeconform:1": {},
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
   },
 
   "mounts": [
@@ -29,6 +30,10 @@
   ],
 
   "postCreateCommand": "make dev-install",
+
+  "remoteEnv": {
+    "HOST_PROJECT_PATH": "${localWorkspaceFolder}"
+  },
 
   "customizations": {
     "vscode": {
