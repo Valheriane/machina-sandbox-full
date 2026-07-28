@@ -18,8 +18,17 @@
       "version": "latest",
       "helm": "latest",
       "minikube": "none"
-    }
+    },
+    "ghcr.io/gickis/devcontainer-features/kubeconform:1": {}
   },
+
+  "mounts": [
+    "source=${localWorkspaceFolderBasename}-fleet-api-venv,target=${containerWorkspaceFolder}/fleet-api/.venv,type=volume",
+    "source=${localWorkspaceFolderBasename}-drone-venv,target=${containerWorkspaceFolder}/agents/drone/.venv,type=volume",
+    "source=${localWorkspaceFolderBasename}-front-node-modules,target=${containerWorkspaceFolder}/front/node_modules,type=volume"
+  ],
+
+  "postCreateCommand": "make dev-install",
 
   "customizations": {
     "vscode": {
@@ -37,7 +46,8 @@
         "editor.formatOnSave": true,
         "files.trimTrailingWhitespace": true,
         "yaml.validate": true,
-        "python.defaultInterpreterPath": "/usr/local/python/current/bin/python"
+        "python.defaultInterpreterPath": "${workspaceFolder}/fleet-api/.venv/bin/python",
+        "python.terminal.activateEnvironment": true
       }
     }
   }

@@ -5,9 +5,15 @@ SCRIPTS_DIR := scripts
 MINIKUBE_PROFILE ?= minikube
 ARGOCD_PORT ?= 8081
 COMPOSE ?= docker compose
+HELM_CHART ?= ./machina-sandbox
+HELM_RELEASE ?= machina-test
+HELM_NAMESPACE ?= machina-helm-test
+RENDERED_MANIFEST ?= /tmp/machina-rendered.yaml
+
 
 .PHONY: \
 	help permissions versions ensure-local \
+	dev-install validate-k8s \
 	restart start check status \
 	check-monitoring check-prometheus check-loki check-argocd \
 	open-grafana open-argocd \
@@ -120,3 +126,23 @@ compose-status: ## Affiche l'état des services Docker Compose
 
 compose-logs: ## Suit les logs Docker Compose
 	@$(COMPOSE) logs -f --tail=100
+
+dev-install: ## Installe les dépendances du Dev Container
+	@bash .devcontainer/post-create.sh
+
+validate-k8s: ## Valide le chart Helm et les manifests Kubernetes hors ligne
+	@echo "=== Vérification du chart Helm ==="
+	@helm lint $(HELM_CHART)
+	@echo
+	@echo "=== Génération des manifests ==="
+	@helm template $(HELM_RELEASE) $(HELM_CHART) \
+		--namespace $(HELM_NAMESPACE) \
+		> $(RENDERED_MANIFEST)
+	@echo "Manifest généré : $(RENDERED_MANIFEST)"
+	@echo
+	@echo "=== Validation Kubeconform ==="
+	@kubeconform \
+		-strict \
+		-summary \
+		-ignore-missing-schemas \
+		$(RENDERED_MANIFEST)
