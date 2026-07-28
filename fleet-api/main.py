@@ -1,3 +1,4 @@
+import os
 from fastapi import FastAPI, HTTPException
 from typing import List
 from sqlmodel import select
@@ -10,6 +11,7 @@ app = FastAPI(title="Fleet API", version="0.1.0")
 
 cfg = get_config()
 
+'''
 app.add_middleware(
     CORSMiddleware,
     #allow_origins=cfg["cors"]["allow_origins"],
@@ -22,17 +24,42 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+'''
+
+
+def get_cors_origins() -> list[str]:
+    raw_origins = os.getenv(
+        "CORS_ORIGINS",
+        "http://localhost:8086,http://127.0.0.1:8086",
+    )
+
+    return [
+        origin.strip().rstrip("/")
+        for origin in raw_origins.split(",")
+        if origin.strip()
+    ]
+
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=get_cors_origins(),
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 cfg = get_config()
 fleet = FleetManager()
 
 # --- tests app  ---
 
+
 @app.get("/health")
 def health():
     return {"status": "ok"}
 
 # --- CRUD drones ---
+
 
 @app.post("/drones", response_model=DroneRead)
 def create_drone(body: DroneCreate):
@@ -51,8 +78,11 @@ def create_drone(body: DroneCreate):
             heading_noise=body.heading_noise,
             status="stopped",
         )
-        s.add(d); s.commit(); s.refresh(d)
+        s.add(d)
+        s.commit()
+        s.refresh(d)
         return DroneRead(**d.model_dump())
+
 
 @app.get("/drones", response_model=List[DroneRead])
 def list_drones():
@@ -61,9 +91,11 @@ def list_drones():
         # met à jour statut en mémoire si besoin
         out = []
         for d in rows:
-            d.status = "running" if (d.id in fleet.workers and fleet.workers[d.id].is_running()) else "stopped"
+            d.status = "running" if (
+                d.id in fleet.workers and fleet.workers[d.id].is_running()) else "stopped"
             out.append(DroneRead(**d.model_dump()))
         return out
+
 
 @app.get("/drones/{drone_id}", response_model=DroneRead)
 def get_drone(drone_id: str):
@@ -71,8 +103,10 @@ def get_drone(drone_id: str):
         d = s.get(Drone, drone_id)
         if not d:
             raise HTTPException(404, "Not found")
-        d.status = "running" if (drone_id in fleet.workers and fleet.workers[drone_id].is_running()) else "stopped"
+        d.status = "running" if (
+            drone_id in fleet.workers and fleet.workers[drone_id].is_running()) else "stopped"
         return DroneRead(**d.model_dump())
+
 
 @app.delete("/drones/{drone_id}")
 def delete_drone(drone_id: str):
@@ -82,9 +116,11 @@ def delete_drone(drone_id: str):
             raise HTTPException(404, "Not found")
         # stoppe si en cours
         fleet.stop(drone_id)
-        s.delete(d); s.commit()
+        s.delete(d)
+        s.commit()
         return {"ok": True}
-    
+
+
 @app.patch("/drones/{drone_id}", response_model=DroneRead)
 def update_drone(drone_id: str, body: DroneUpdate):
     with get_session(cfg["database_url"]) as s:
@@ -97,13 +133,17 @@ def update_drone(drone_id: str, body: DroneUpdate):
         for k, v in data.items():
             setattr(d, k, v)
 
-        s.add(d); s.commit(); s.refresh(d)
+        s.add(d)
+        s.commit()
+        s.refresh(d)
 
         # remettre à jour le status calculé
-        d.status = "running" if (drone_id in fleet.workers and fleet.workers[drone_id].is_running()) else "stopped"
+        d.status = "running" if (
+            drone_id in fleet.workers and fleet.workers[drone_id].is_running()) else "stopped"
         return DroneRead(**d.model_dump())
 
 # --- Start/Stop ---
+
 
 @app.post("/drones/{drone_id}/start")
 def start_drone(drone_id: str):
@@ -114,12 +154,14 @@ def start_drone(drone_id: str):
         fleet.start(d)
         return {"ok": True, "status": "running"}
 
+
 @app.post("/drones/{drone_id}/stop")
 def stop_drone(drone_id: str):
     fleet.stop(drone_id)
     return {"ok": True, "status": "stopped"}
 
 # --- Commandes (API signe et publie sur MQTT) ---
+
 
 @app.post("/drones/{drone_id}/cmd")
 def command_drone(drone_id: str, body: CommandRequest):

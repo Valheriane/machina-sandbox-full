@@ -33,3 +33,4 @@ broker/mosquitto.db.*
 fleet-api/.venv/
 agents/drone/.venv/
 front/node_modules/
+.env

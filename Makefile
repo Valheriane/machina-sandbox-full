@@ -10,6 +10,22 @@ HELM_RELEASE ?= machina-test
 HELM_NAMESPACE ?= machina-helm-test
 RENDERED_MANIFEST ?= /tmp/machina-rendered.yaml
 
+# Configuration locale Docker Compose
+MACHINA_MQTT_PORT ?= 1883
+MACHINA_MQTT_WS_PORT ?= 9001
+MACHINA_API_PORT ?= 8000
+MACHINA_FRONT_PORT ?= 8085
+MACHINA_SHARED_SECRET ?= dev-secret-change-me
+
+# Charge .env lorsqu'il existe
+-include .env
+
+export MACHINA_MQTT_PORT
+export MACHINA_MQTT_WS_PORT
+export MACHINA_API_PORT
+export MACHINA_FRONT_PORT
+export MACHINA_SHARED_SECRET
+
 
 .PHONY: \
 	help permissions versions ensure-local \
@@ -19,7 +35,7 @@ RENDERED_MANIFEST ?= /tmp/machina-rendered.yaml
 	open-grafana open-argocd \
 	minikube-start minikube-stop minikube-status \
 	pods namespaces releases \
-	compose-up compose-down compose-restart compose-status compose-logs
+	compose-config compose-up compose-down compose-restart compose-status compose-logs
 
 help: ## Affiche la liste des commandes disponibles
 	@echo
@@ -112,7 +128,18 @@ namespaces: ensure-local ## Affiche les namespaces Kubernetes
 releases: ensure-local ## Affiche toutes les releases Helm
 	@helm list -A
 
-compose-up: ## Construit et démarre broker, fleet-api et front avec Docker Compose
+compose-config: ## Valide la configuration Docker Compose sans rien démarrer
+	@echo "=== Validation Docker Compose ==="
+	@$(COMPOSE) config --quiet
+	@echo "Configuration Docker Compose valide."
+	@echo
+	@echo "Chemin hôte utilisé : $${HOST_PROJECT_PATH:-répertoire local}"
+	@echo "MQTT     : localhost:$(MACHINA_MQTT_PORT)"
+	@echo "WebSocket: localhost:$(MACHINA_MQTT_WS_PORT)"
+	@echo "API      : http://localhost:$(MACHINA_API_PORT)"
+	@echo "Frontend : http://localhost:$(MACHINA_FRONT_PORT)"
+
+compose-up: compose-config ## Construit et démarre broker, fleet-api et front avec Docker Compose
 	@$(COMPOSE) up -d --build
 
 compose-down: ## Arrête Docker Compose sans supprimer les volumes
@@ -121,8 +148,11 @@ compose-down: ## Arrête Docker Compose sans supprimer les volumes
 compose-restart: ## Redémarre les services Docker Compose
 	@$(COMPOSE) restart
 
-compose-status: ## Affiche l'état des services Docker Compose
+compose-status: ## Affiche l'état et les ports des services Docker Compose
 	@$(COMPOSE) ps
+	@echo
+	@echo "API      : http://localhost:$(MACHINA_API_PORT)"
+	@echo "Frontend : http://localhost:$(MACHINA_FRONT_PORT)"
 
 compose-logs: ## Suit les logs Docker Compose
 	@$(COMPOSE) logs -f --tail=100
