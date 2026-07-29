@@ -30,6 +30,7 @@ export MACHINA_SHARED_SECRET
 .PHONY: \
 	help permissions versions ensure-local \
 	dev-install validate-k8s \
+	k8s-connect k8s-status \
 	restart start check status \
 	check-monitoring check-prometheus check-loki check-argocd \
 	open-grafana open-argocd \
@@ -120,7 +121,7 @@ minikube-status: ensure-local ## Affiche l'état du profil Minikube
 	@minikube status -p $(MINIKUBE_PROFILE)
 
 pods: ensure-local ## Affiche tous les pods Kubernetes
-	@kubectl get pods -A -o wide
+	@kubectl get pods - -o wide
 
 namespaces: ensure-local ## Affiche les namespaces Kubernetes
 	@kubectl get namespaces
@@ -176,3 +177,20 @@ validate-k8s: ## Valide le chart Helm et les manifests Kubernetes hors ligne
 		-summary \
 		-ignore-missing-schemas \
 		$(RENDERED_MANIFEST)
+
+k8s-connect: ## Connecte le Dev Container au cluster Minikube machina
+	@CONNECT_MINIKUBE_STRICT=1 bash .devcontainer/connect-minikube.sh
+
+k8s-status: ## Vérifie la connexion Kubernetes depuis le Dev Container
+	@echo "=== Contexte Kubernetes ==="
+	@kubectl config current-context
+	@echo
+	@echo "=== Nœuds ==="
+	@kubectl get nodes -o wide
+	@echo
+	@echo "=== Pods ==="
+	@kubectl get pods -A
+	@echo
+	@echo "=== Releases Helm ==="
+	@helm list -A
+

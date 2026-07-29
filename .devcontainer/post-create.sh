@@ -100,6 +100,13 @@ install_python_dependencies "fleet-api" "fleet-api"
 install_python_dependencies "drone" "agents/drone"
 install_front_dependencies
 
+log_info "Préparation des répertoires Kubernetes..."
+
+prepare_directory "${HOME}/.kube"
+prepare_directory "${HOME}/.minikube"
+
+log_ok "Répertoires Kubernetes prêts"
+
 echo
 echo "=================================================="
 log_ok "Dev Container prêt"
@@ -108,4 +115,8 @@ echo
 echo "Interpréteurs Python :"
 echo "  fleet-api    : ${ROOT_DIR}/fleet-api/.venv/bin/python"
 echo "  agents/drone : ${ROOT_DIR}/agents/drone/.venv/bin/python"
+echo
+echo "Répertoires Kubernetes :"
+echo "  kubeconfig : ${HOME}/.kube"
+echo "  minikube   : ${HOME}/.minikube"
 echo
