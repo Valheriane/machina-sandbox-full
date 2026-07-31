@@ -1,29 +1,55 @@
 broker:
   replicas: 1
+
   image:
     repository: eclipse-mosquitto
     tag: "2"
     pullPolicy: IfNotPresent
 
+  service:
+    type: NodePort
+    mqttPort: 1883
+    mqttNodePort: 31883
+    websocketPort: 9001
+    websocketNodePort: 30901
+
+
 fleetApi:
-  replicas: 2
+  replicas: 1
+
   image:
     repository: fleet-api
     tag: latest
     pullPolicy: Never
+
+  service:
+    type: NodePort
+    port: 8000
+    nodePort: 30800
+
   env:
     mqttHost: broker
     mqttPort: "1883"
     topicPrefix: lab
     sharedSecret: dev-secret-change-me
     databaseUrl: sqlite:///data/fleet.db
+    corsOrigins: ""
+
 
 front:
-  replicas: 2
+  replicas: 1
+
   image:
     repository: front
     tag: latest
     pullPolicy: Never
+
+  service:
+    type: NodePort
+    port: 80
+    nodePort: 32449
+
+  # Conservé car front-deployment.yaml utilise encore ces valeurs.
   env:
     mqttUrl: ws://broker:9001
     apiBase: http://fleet-api:8000

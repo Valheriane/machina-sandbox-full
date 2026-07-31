@@ -56,7 +56,24 @@ fleet = FleetManager()
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    return {
+        "status": "ok",
+        "mqtt_connected": fleet.mqtt_connected(),
+    }
+
+
+@app.get("/ready")
+def ready():
+    if not fleet.mqtt_connected():
+        raise HTTPException(
+            status_code=503,
+            detail="MQTT not connected",
+        )
+
+    return {
+        "status": "ready",
+        "mqtt": "connected",
+    }
 
 # --- CRUD drones ---
 
@@ -172,5 +189,15 @@ def command_drone(drone_id: str, body: CommandRequest):
         payload = {"cmd": body.cmd}
         if body.args:
             payload["args"] = body.args
-        topic, envelope = fleet.publish_cmd(d.topic_prefix, d.id, payload)
+    try:
+        topic, envelope = fleet.publish_cmd(
+            d.topic_prefix,
+            d.id,
+            payload,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail=str(exc),
+        ) from exc
         return {"ok": True, "topic": topic, "envelope": envelope}

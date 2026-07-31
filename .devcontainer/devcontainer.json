@@ -1,12 +1,15 @@
 {
   "name": "MachinaControl - environnement de développement",
 
+
   "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
 
   "remoteUser": "vscode",
 
   "runArgs": [
-    "--add-host=host.docker.internal:host-gateway"
+    "--add-host=host.docker.internal:host-gateway",
+    "--dns=1.1.1.1",
+    "--dns=8.8.8.8"
   ],
 
   "features": {
