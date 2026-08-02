@@ -4,18 +4,49 @@ metadata:
   name: broker
 spec:
   replicas: {{ .Values.broker.replicas }}
+
   selector:
     matchLabels:
       app: broker
+
   template:
     metadata:
       labels:
         app: broker
+      annotations:
+        checksum/broker-config: {{ include (print $.Template.BasePath "/broker-configmap.yaml") . | sha256sum }}
+
     spec:
       containers:
         - name: broker
           image: "{{ .Values.broker.image.repository }}:{{ .Values.broker.image.tag }}"
           imagePullPolicy: {{ .Values.broker.image.pullPolicy }}
+
           ports:
-            - containerPort: 1883
-            - containerPort: 9001
+            - name: mqtt
+              containerPort: 1883
+
+            - name: websocket
+              containerPort: 9001
+
+            - name: http-api
+              containerPort: 9883
+
+          volumeMounts:
+            - name: broker-config
+              mountPath: /mosquitto/config/mosquitto.conf
+              subPath: mosquitto.conf
+              readOnly: true
+
+          readinessProbe:
+            tcpSocket:
+              port: mqtt
+            initialDelaySeconds: 1
+            periodSeconds: 2
+            timeoutSeconds: 1
+            failureThreshold: 30
+
+      volumes:
+        - name: broker-config
+          configMap:
+            name: broker-config

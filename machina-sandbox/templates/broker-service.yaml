@@ -3,12 +3,22 @@ kind: Service
 metadata:
   name: broker
 spec:
+  type: {{ .Values.broker.service.type }}
+
   selector:
     app: broker
+
   ports:
     - name: mqtt
-      port: 1883
-      targetPort: 1883
+      port: {{ .Values.broker.service.mqttPort }}
+      targetPort: mqtt
+{{- if eq .Values.broker.service.type "NodePort" }}
+      nodePort: {{ .Values.broker.service.mqttNodePort }}
+{{- end }}
+
     - name: websocket
-      port: 9001
-      targetPort: 9001
+      port: {{ .Values.broker.service.websocketPort }}
+      targetPort: websocket
+{{- if eq .Values.broker.service.type "NodePort" }}
+      nodePort: {{ .Values.broker.service.websocketNodePort }}
+{{- end }}

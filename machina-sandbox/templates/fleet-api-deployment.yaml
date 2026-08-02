@@ -4,28 +4,59 @@ metadata:
   name: fleet-api
 spec:
   replicas: {{ .Values.fleetApi.replicas }}
+
   selector:
     matchLabels:
       app: fleet-api
+
   template:
     metadata:
       labels:
         app: fleet-api
+
     spec:
       containers:
         - name: fleet-api
           image: "{{ .Values.fleetApi.image.repository }}:{{ .Values.fleetApi.image.tag }}"
           imagePullPolicy: {{ .Values.fleetApi.image.pullPolicy }}
+
           ports:
-            - containerPort: 8000
+            - name: http
+              containerPort: 8000
+
           env:
             - name: MQTT_HOST
               value: {{ .Values.fleetApi.env.mqttHost | quote }}
+
             - name: MQTT_PORT
               value: {{ .Values.fleetApi.env.mqttPort | quote }}
+
             - name: TOPIC_PREFIX
               value: {{ .Values.fleetApi.env.topicPrefix | quote }}
+
             - name: SHARED_SECRET
               value: {{ .Values.fleetApi.env.sharedSecret | quote }}
+
             - name: DATABASE_URL
               value: {{ .Values.fleetApi.env.databaseUrl | quote }}
+
+            - name: CORS_ORIGINS
+              value: {{ .Values.fleetApi.env.corsOrigins | quote }}
+
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 2
+            timeoutSeconds: 2
+            failureThreshold: 30
+
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3

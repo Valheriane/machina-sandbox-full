@@ -1,0 +1,70 @@
+{
+  "name": "MachinaControl - environnement de développement",
+
+
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
+
+  "remoteUser": "vscode",
+
+  "runArgs": [
+    "--add-host=host.docker.internal:host-gateway",
+    "--dns=1.1.1.1",
+    "--dns=8.8.8.8"
+  ],
+
+  "features": {
+    "ghcr.io/devcontainers/features/python:1": {
+      "version": "3.11"
+    },
+
+    "ghcr.io/devcontainers/features/node:2": {
+      "version": "20"
+    },
+
+    "ghcr.io/devcontainers/features/kubectl-helm-minikube:1": {
+      "version": "latest",
+      "helm": "latest",
+      "minikube": "none"
+    },
+    "ghcr.io/gickis/devcontainer-features/kubeconform:1": {},
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
+  },
+
+  "mounts": [
+    "source=${localWorkspaceFolderBasename}-fleet-api-venv,target=${containerWorkspaceFolder}/fleet-api/.venv,type=volume",
+    "source=${localWorkspaceFolderBasename}-drone-venv,target=${containerWorkspaceFolder}/agents/drone/.venv,type=volume",
+    "source=${localWorkspaceFolderBasename}-front-node-modules,target=${containerWorkspaceFolder}/front/node_modules,type=volume",
+    "source=${localWorkspaceFolderBasename}-kube,target=/home/vscode/.kube,type=volume",
+    "source=${localWorkspaceFolderBasename}-minikube,target=/home/vscode/.minikube,type=volume"
+  ],
+
+  "postCreateCommand": "make dev-install",
+
+  "postStartCommand": "bash .devcontainer/connect-minikube.sh",
+
+  "remoteEnv": {
+    "HOST_PROJECT_PATH": "${localWorkspaceFolder}"
+  },
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-azuretools.vscode-docker",
+        "ms-kubernetes-tools.vscode-kubernetes-tools",
+        "redhat.vscode-yaml",
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode"
+      ],
+
+      "settings": {
+        "editor.formatOnSave": true,
+        "files.trimTrailingWhitespace": true,
+        "yaml.validate": true,
+        "python.defaultInterpreterPath": "${workspaceFolder}/fleet-api/.venv/bin/python",
+        "python.terminal.activateEnvironment": true
+      }
+    }
+  }
+}

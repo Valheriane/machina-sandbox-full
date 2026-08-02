@@ -3,8 +3,15 @@ kind: Service
 metadata:
   name: fleet-api
 spec:
+  type: {{ .Values.fleetApi.service.type }}
+
   selector:
     app: fleet-api
+
   ports:
-    - port: 8000
-      targetPort: 8000
+    - name: http
+      port: {{ .Values.fleetApi.service.port }}
+      targetPort: http
+{{- if eq .Values.fleetApi.service.type "NodePort" }}
+      nodePort: {{ .Values.fleetApi.service.nodePort }}
+{{- end }}
