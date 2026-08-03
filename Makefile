@@ -1,11 +1,13 @@
 SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
-SCRIPTS_DIR := scripts
+APPLICATION_DIR ?= Application
+DOCUMENTATION_DIR ?= Documentation
+SCRIPTS_DIR := $(APPLICATION_DIR)/scripts
 MINIKUBE_PROFILE ?= minikube
 ARGOCD_PORT ?= 8081
-COMPOSE ?= docker compose
-HELM_CHART ?= ./machina-sandbox
+COMPOSE ?= docker compose --project-directory $(APPLICATION_DIR) -f $(APPLICATION_DIR)/docker-compose.yml
+HELM_CHART ?= $(APPLICATION_DIR)/machina-sandbox
 HELM_RELEASE ?= machina-test
 HELM_NAMESPACE ?= machina-helm-test
 RENDERED_MANIFEST ?= /tmp/machina-rendered.yaml
@@ -18,7 +20,7 @@ MACHINA_FRONT_PORT ?= 8085
 MACHINA_SHARED_SECRET ?= dev-secret-change-me
 
 # Charge .env lorsqu'il existe
--include .env
+-include $(APPLICATION_DIR)/.env
 
 export MACHINA_MQTT_PORT
 export MACHINA_MQTT_WS_PORT
@@ -181,7 +183,7 @@ validate-k8s: ## Valide le chart Helm et les manifests Kubernetes hors ligne
 k8s-connect: ## Connecte le Dev Container au cluster Minikube machina
 	@CONNECT_MINIKUBE_STRICT=1 bash .devcontainer/connect-minikube.sh
 
-k8s-status: ## Vérifie la connexion Kubernetes depuis le Dev Container
+k8s-status: k8s-connect ## Vérifie la connexion Kubernetes depuis le Dev Container
 	@echo "=== Contexte Kubernetes ==="
 	@kubectl config current-context
 	@echo
@@ -201,7 +203,7 @@ k8s-status: ## Vérifie la connexion Kubernetes depuis le Dev Container
 DEVCONT_MINIKUBE_CONTAINER ?= machina
 DEVCONT_NAMESPACE ?= machina-sandbox
 DEVCONT_RELEASE ?= machina-sandbox
-DEVCONT_CHART ?= ./machina-sandbox
+DEVCONT_CHART ?= $(APPLICATION_DIR)/machina-sandbox
 
 DEVCONT_API_NODEPORT ?= 30800
 DEVCONT_FRONT_NODEPORT ?= 32449
@@ -227,8 +229,8 @@ devcont-bootstrap: devcont-deploy ## Première installation complète depuis le 
 
 devcont-build-images: ## Construit les images applicatives destinées à Minikube
 	echo "=== Construction des images Kubernetes ==="
-	docker build --tag fleet-api:latest ./fleet-api
-	docker build --tag front:latest ./front
+	docker build --tag fleet-api:latest $(APPLICATION_DIR)/fleet-api
+	docker build --tag front:latest $(APPLICATION_DIR)/front
 	docker image inspect eclipse-mosquitto:2 >/dev/null 2>&1 || docker pull eclipse-mosquitto:2
 
 

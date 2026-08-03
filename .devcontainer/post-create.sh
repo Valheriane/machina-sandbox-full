@@ -5,6 +5,8 @@ set -Eeuo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
+APPLICATION_DIR="${ROOT_DIR}/Application"
+
 GREEN="\033[0;32m"
 BLUE="\033[0;34m"
 RED="\033[0;31m"
@@ -64,7 +66,7 @@ install_python_dependencies() {
 }
 
 install_front_dependencies() {
-  local front_directory="front"
+  local front_directory="$1"
 
   log_info "Installation des dépendances du frontend..."
 
@@ -74,7 +76,7 @@ install_front_dependencies() {
   fi
 
   if [[ ! -f "${front_directory}/package-lock.json" ]]; then
-    log_error "Le fichier front/package-lock.json est absent."
+    log_error "Le fichier ${front_directory}/package-lock.json est absent."
     log_error "La création automatique du lockfile est volontairement bloquée."
     log_error "Il faudra exécuter npm install une fois puis versionner package-lock.json."
     return 1
@@ -96,9 +98,9 @@ echo " Préparation du Dev Container MachinaControl"
 echo "=================================================="
 echo
 
-install_python_dependencies "fleet-api" "fleet-api"
-install_python_dependencies "drone" "agents/drone"
-install_front_dependencies
+install_python_dependencies "fleet-api" "${APPLICATION_DIR}/fleet-api"
+install_python_dependencies "drone" "${APPLICATION_DIR}/agents/drone"
+install_front_dependencies "${APPLICATION_DIR}/front"
 
 log_info "Préparation des répertoires Kubernetes..."
 
@@ -113,8 +115,8 @@ log_ok "Dev Container prêt"
 echo "=================================================="
 echo
 echo "Interpréteurs Python :"
-echo "  fleet-api    : ${ROOT_DIR}/fleet-api/.venv/bin/python"
-echo "  agents/drone : ${ROOT_DIR}/agents/drone/.venv/bin/python"
+echo "  fleet-api    : ${APPLICATION_DIR}/fleet-api/.venv/bin/python"
+echo "  agents/drone : ${APPLICATION_DIR}/agents/drone/.venv/bin/python"
 echo
 echo "Répertoires Kubernetes :"
 echo "  kubeconfig : ${HOME}/.kube"

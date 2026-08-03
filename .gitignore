@@ -34,3 +34,7 @@ fleet-api/.venv/
 agents/drone/.venv/
 front/node_modules/
 .env
+# Dépendances et fichiers générés
+.venv/
+.pytest_cache/
+*.py[cod]
