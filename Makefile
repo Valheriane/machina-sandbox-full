@@ -294,3 +294,27 @@ devcont-stop: k8s-connect ## Arrête l'application sans supprimer Helm ni Miniku
 	echo "=== Arrêt du broker ==="
 	kubectl scale deployment/broker --namespace $(DEVCONT_NAMESPACE) --replicas=0
 	kubectl get deployments --namespace $(DEVCONT_NAMESPACE)
+
+# === Host Minikube lifecycle ===
+
+HOST_TOOL ?= tools/host/machina-host
+
+.PHONY: host-bootstrap host-check host-start host-status host-stop host-delete
+
+host-bootstrap: ensure-local ## Installe Minikube si nécessaire et démarre le cluster hôte
+	@bash $(HOST_TOOL) bootstrap
+
+host-check: ensure-local ## Vérifie Docker, Minikube et le profil Kubernetes hôte
+	@bash $(HOST_TOOL) check
+
+host-start: ensure-local ## Démarre le profil Minikube hôte
+	@bash $(HOST_TOOL) start
+
+host-status: ensure-local ## Affiche l'état du profil Minikube hôte
+	@bash $(HOST_TOOL) status
+
+host-stop: ensure-local ## Arrête le profil Minikube hôte sans le supprimer
+	@bash $(HOST_TOOL) stop
+
+host-delete: ensure-local ## Supprime le profil Minikube hôte après confirmation
+	@bash $(HOST_TOOL) delete
