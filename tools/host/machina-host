@@ -1,0 +1,275 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+PROFILE="${MACHINA_MINIKUBE_PROFILE:-machina}"
+DRIVER="${MACHINA_MINIKUBE_DRIVER:-docker}"
+RUNTIME="${MACHINA_MINIKUBE_RUNTIME:-docker}"
+CPUS="${MACHINA_MINIKUBE_CPUS:-4}"
+MEMORY="${MACHINA_MINIKUBE_MEMORY:-4096mb}"
+DISK_SIZE="${MACHINA_MINIKUBE_DISK_SIZE:-20g}"
+MINIKUBE_VERSION="${MACHINA_MINIKUBE_VERSION:-latest}"
+
+LOCAL_BIN="${HOME}/.local/bin"
+LOCAL_MINIKUBE="${LOCAL_BIN}/minikube"
+
+info() {
+    printf '[INFO] %s\n' "$*"
+}
+
+success() {
+    printf '[OK] %s\n' "$*"
+}
+
+warning() {
+    printf '[ATTENTION] %s\n' "$*" >&2
+}
+
+fail() {
+    printf '[ERREUR] %s\n' "$*" >&2
+    exit 1
+}
+
+usage() {
+    cat <<USAGE
+Usage :
+  tools/host/machina-host bootstrap
+  tools/host/machina-host check
+  tools/host/machina-host start
+  tools/host/machina-host status
+  tools/host/machina-host stop
+  tools/host/machina-host delete
+  tools/host/machina-host help
+
+Commandes :
+  bootstrap  Vérifie Docker, installe Minikube si nécessaire et démarre le cluster.
+  check      Vérifie l'environnement hôte, Docker et Minikube.
+  start      Démarre ou crée le profil Minikube "${PROFILE}".
+  status     Affiche l'état du profil Minikube "${PROFILE}".
+  stop       Arrête le profil sans le supprimer.
+  delete     Supprime définitivement le profil après confirmation.
+  help       Affiche cette aide.
+
+Variables optionnelles :
+  MACHINA_MINIKUBE_PROFILE
+  MACHINA_MINIKUBE_DRIVER
+  MACHINA_MINIKUBE_RUNTIME
+  MACHINA_MINIKUBE_CPUS
+  MACHINA_MINIKUBE_MEMORY
+  MACHINA_MINIKUBE_DISK_SIZE
+  MACHINA_MINIKUBE_VERSION
+USAGE
+}
+
+require_host_environment() {
+    if [[ -f "/.dockerenv" ]] || [[ -n "${REMOTE_CONTAINERS:-}" ]] || [[ -n "${CODESPACES:-}" ]]; then
+        fail "Cette commande doit être exécutée depuis le système Linux hôte, pas dans le Dev Container."
+    fi
+}
+
+check_docker() {
+    command -v docker >/dev/null 2>&1 ||
+        fail "Docker n'est pas installé ou n'est pas présent dans le PATH."
+
+    docker info >/dev/null 2>&1 ||
+        fail "Docker est installé, mais le moteur n'est pas accessible. Vérifie que Docker est démarré et que ton utilisateur possède les droits nécessaires."
+
+    success "Docker est accessible : $(docker --version)"
+}
+
+resolve_minikube() {
+    if command -v minikube >/dev/null 2>&1; then
+        command -v minikube
+        return 0
+    fi
+
+    if [[ -x "${LOCAL_MINIKUBE}" ]]; then
+        printf '%s\n' "${LOCAL_MINIKUBE}"
+        return 0
+    fi
+
+    return 1
+}
+
+detect_architecture() {
+    case "$(uname -m)" in
+        x86_64|amd64)
+            printf 'amd64\n'
+            ;;
+        aarch64|arm64)
+            printf 'arm64\n'
+            ;;
+        *)
+            fail "Architecture non prise en charge : $(uname -m)"
+            ;;
+    esac
+}
+
+install_minikube() {
+    local architecture
+    local download_url
+    local temporary_file
+
+    if resolve_minikube >/dev/null 2>&1; then
+        success "Minikube est déjà installé."
+        return 0
+    fi
+
+    [[ "$(uname -s)" == "Linux" ]] ||
+        fail "L'installation automatique est actuellement prévue uniquement pour Linux."
+
+    command -v curl >/dev/null 2>&1 ||
+        fail "La commande curl est nécessaire pour télécharger Minikube."
+
+    command -v install >/dev/null 2>&1 ||
+        fail "La commande install est nécessaire pour installer Minikube."
+
+    architecture="$(detect_architecture)"
+    download_url="https://storage.googleapis.com/minikube/releases/${MINIKUBE_VERSION}/minikube-linux-${architecture}"
+    temporary_file="$(mktemp)"
+
+    info "Téléchargement de Minikube ${MINIKUBE_VERSION} pour Linux ${architecture}..."
+
+    if ! curl --fail --location --show-error \
+        "${download_url}" \
+        --output "${temporary_file}"; then
+        rm -f "${temporary_file}"
+        fail "Le téléchargement de Minikube a échoué."
+    fi
+
+    mkdir -p "${LOCAL_BIN}"
+    install -m 0755 "${temporary_file}" "${LOCAL_MINIKUBE}"
+    rm -f "${temporary_file}"
+
+    success "Minikube installé dans ${LOCAL_MINIKUBE}"
+}
+
+check_environment() {
+    local minikube_bin
+
+    info "Système : $(uname -s) $(uname -m)"
+    info "Profil Minikube : ${PROFILE}"
+    info "Pilote : ${DRIVER}"
+    info "Runtime : ${RUNTIME}"
+
+    check_docker
+
+    if ! minikube_bin="$(resolve_minikube)"; then
+        warning "Minikube n'est pas encore installé."
+        warning "Lance : make host-bootstrap"
+        return 1
+    fi
+
+    success "Minikube trouvé : ${minikube_bin}"
+    "${minikube_bin}" version
+
+    if "${minikube_bin}" -p "${PROFILE}" status >/dev/null 2>&1; then
+        success "Le profil ${PROFILE} est démarré."
+        "${minikube_bin}" -p "${PROFILE}" status
+    else
+        info "Le profil ${PROFILE} est absent ou arrêté."
+        "${minikube_bin}" -p "${PROFILE}" status 2>/dev/null || true
+    fi
+}
+
+start_cluster() {
+    local minikube_bin
+
+    check_docker
+    install_minikube
+    minikube_bin="$(resolve_minikube)"
+
+    info "Démarrage du profil Minikube ${PROFILE}..."
+
+    "${minikube_bin}" -p "${PROFILE}" start \
+        --driver="${DRIVER}" \
+        --container-runtime="${RUNTIME}" \
+        --cpus="${CPUS}" \
+        --memory="${MEMORY}" \
+        --disk-size="${DISK_SIZE}"
+
+    success "Le profil Minikube ${PROFILE} est prêt."
+    "${minikube_bin}" -p "${PROFILE}" status
+}
+
+bootstrap() {
+    info "Préparation de l'environnement Kubernetes hôte..."
+    start_cluster
+}
+
+show_status() {
+    local minikube_bin
+
+    minikube_bin="$(resolve_minikube)" ||
+        fail "Minikube n'est pas installé. Lance make host-bootstrap."
+
+    "${minikube_bin}" -p "${PROFILE}" status
+}
+
+stop_cluster() {
+    local minikube_bin
+
+    minikube_bin="$(resolve_minikube)" ||
+        fail "Minikube n'est pas installé."
+
+    info "Arrêt du profil ${PROFILE}..."
+    "${minikube_bin}" -p "${PROFILE}" stop
+    success "Le profil ${PROFILE} est arrêté."
+}
+
+delete_cluster() {
+    local minikube_bin
+    local confirmation=""
+
+    minikube_bin="$(resolve_minikube)" ||
+        fail "Minikube n'est pas installé."
+
+    warning "Cette action supprimera définitivement le profil ${PROFILE}."
+
+    if [[ "${MACHINA_CONFIRM_DELETE:-no}" != "yes" ]]; then
+        read -r -p "Tape DELETE pour confirmer : " confirmation
+
+        if [[ "${confirmation}" != "DELETE" ]]; then
+            info "Suppression annulée."
+            return 0
+        fi
+    fi
+
+    "${minikube_bin}" -p "${PROFILE}" delete
+    success "Le profil ${PROFILE} a été supprimé."
+}
+
+COMMAND="${1:-help}"
+
+case "${COMMAND}" in
+    help|-h|--help)
+        usage
+        exit 0
+        ;;
+esac
+
+require_host_environment
+
+case "${COMMAND}" in
+    bootstrap)
+        bootstrap
+        ;;
+    check)
+        check_environment
+        ;;
+    start)
+        start_cluster
+        ;;
+    status)
+        show_status
+        ;;
+    stop)
+        stop_cluster
+        ;;
+    delete)
+        delete_cluster
+        ;;
+    *)
+        usage
+        fail "Commande inconnue : ${COMMAND}"
+        ;;
+esac

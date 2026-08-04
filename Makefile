@@ -1,14 +1,25 @@
 SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
-SCRIPTS_DIR := scripts
+APPLICATION_DIR ?= Application
+DOCUMENTATION_DIR ?= Documentation
+SCRIPTS_DIR := $(APPLICATION_DIR)/scripts
 MINIKUBE_PROFILE ?= minikube
 ARGOCD_PORT ?= 8081
-COMPOSE ?= docker compose
-HELM_CHART ?= ./machina-sandbox
+COMPOSE ?= docker compose --project-directory $(APPLICATION_DIR) -f $(APPLICATION_DIR)/docker-compose.yml
+HELM_CHART ?= $(APPLICATION_DIR)/machina-sandbox
 HELM_RELEASE ?= machina-test
 HELM_NAMESPACE ?= machina-helm-test
 RENDERED_MANIFEST ?= /tmp/machina-rendered.yaml
+
+DOCS_VENV ?= $(DOCUMENTATION_DIR)/.venv
+DOCS_PYTHON ?= $(DOCS_VENV)/bin/python
+DOCS_MKDOCS ?= $(DOCS_VENV)/bin/mkdocs
+DOCS_CONFIG ?= $(DOCUMENTATION_DIR)/mkdocs.yml
+DOCS_REQUIREMENTS ?= $(DOCUMENTATION_DIR)/requirements-docs.txt
+DOCS_SITE_DIR ?= $(DOCUMENTATION_DIR)/site
+DOCS_HOST ?= 0.0.0.0
+DOCS_PORT ?= 8001
 
 # Configuration locale Docker Compose
 MACHINA_MQTT_PORT ?= 1883
@@ -18,7 +29,7 @@ MACHINA_FRONT_PORT ?= 8085
 MACHINA_SHARED_SECRET ?= dev-secret-change-me
 
 # Charge .env lorsqu'il existe
--include .env
+-include $(APPLICATION_DIR)/.env
 
 export MACHINA_MQTT_PORT
 export MACHINA_MQTT_WS_PORT
@@ -181,7 +192,7 @@ validate-k8s: ## Valide le chart Helm et les manifests Kubernetes hors ligne
 k8s-connect: ## Connecte le Dev Container au cluster Minikube machina
 	@CONNECT_MINIKUBE_STRICT=1 bash .devcontainer/connect-minikube.sh
 
-k8s-status: ## Vérifie la connexion Kubernetes depuis le Dev Container
+k8s-status: k8s-connect ## Vérifie la connexion Kubernetes depuis le Dev Container
 	@echo "=== Contexte Kubernetes ==="
 	@kubectl config current-context
 	@echo
@@ -201,7 +212,7 @@ k8s-status: ## Vérifie la connexion Kubernetes depuis le Dev Container
 DEVCONT_MINIKUBE_CONTAINER ?= machina
 DEVCONT_NAMESPACE ?= machina-sandbox
 DEVCONT_RELEASE ?= machina-sandbox
-DEVCONT_CHART ?= ./machina-sandbox
+DEVCONT_CHART ?= $(APPLICATION_DIR)/machina-sandbox
 
 DEVCONT_API_NODEPORT ?= 30800
 DEVCONT_FRONT_NODEPORT ?= 32449
@@ -227,8 +238,8 @@ devcont-bootstrap: devcont-deploy ## Première installation complète depuis le 
 
 devcont-build-images: ## Construit les images applicatives destinées à Minikube
 	echo "=== Construction des images Kubernetes ==="
-	docker build --tag fleet-api:latest ./fleet-api
-	docker build --tag front:latest ./front
+	docker build --tag fleet-api:latest $(APPLICATION_DIR)/fleet-api
+	docker build --tag front:latest $(APPLICATION_DIR)/front
 	docker image inspect eclipse-mosquitto:2 >/dev/null 2>&1 || docker pull eclipse-mosquitto:2
 
 
@@ -292,3 +303,84 @@ devcont-stop: k8s-connect ## Arrête l'application sans supprimer Helm ni Miniku
 	echo "=== Arrêt du broker ==="
 	kubectl scale deployment/broker --namespace $(DEVCONT_NAMESPACE) --replicas=0
 	kubectl get deployments --namespace $(DEVCONT_NAMESPACE)
+
+# === Host Minikube lifecycle ===
+
+HOST_TOOL ?= tools/host/machina-host
+
+.PHONY: host-bootstrap host-check host-start host-status host-stop host-delete
+
+host-bootstrap: ensure-local ## Installe Minikube si nécessaire et démarre le cluster hôte
+	@bash $(HOST_TOOL) bootstrap
+
+host-check: ensure-local ## Vérifie Docker, Minikube et le profil Kubernetes hôte
+	@bash $(HOST_TOOL) check
+
+host-start: ensure-local ## Démarre le profil Minikube hôte
+	@bash $(HOST_TOOL) start
+
+host-status: ensure-local ## Affiche l'état du profil Minikube hôte
+	@bash $(HOST_TOOL) status
+
+host-stop: ensure-local ## Arrête le profil Minikube hôte sans le supprimer
+	@bash $(HOST_TOOL) stop
+
+host-delete: ensure-local ## Supprime le profil Minikube hôte après confirmation
+	@bash $(HOST_TOOL) delete
+# ==========================================================
+# Documentation MkDocs
+# ==========================================================
+
+.PHONY: \
+        docs-install \
+        docs-ensure \
+        docs-check \
+        docs-build \
+        docs-serve \
+        docs-clean
+
+docs-install: ## Crée l'environnement virtuel et installe MkDocs
+	@echo "=== Installation de la documentation ==="
+	@test -f "$(DOCS_REQUIREMENTS)" || { \
+		echo "ERREUR : fichier absent : $(DOCS_REQUIREMENTS)"; \
+		exit 1; \
+	}
+	@python3 -m venv "$(DOCS_VENV)"
+	@"$(DOCS_PYTHON)" -m pip install \
+		--disable-pip-version-check \
+		--no-input \
+		-r "$(DOCS_REQUIREMENTS)"
+	@"$(DOCS_PYTHON)" -m pip check
+	@"$(DOCS_MKDOCS)" --version
+
+docs-ensure:
+	@test -x "$(DOCS_MKDOCS)" || { \
+		echo "ERREUR : MkDocs n'est pas installé."; \
+		echo "Exécute d'abord : make docs-install"; \
+		exit 1; \
+	}
+
+docs-check: docs-ensure ## Valide strictement la configuration et les pages MkDocs
+	@echo "=== Validation stricte de la documentation ==="
+	@"$(DOCS_MKDOCS)" build \
+		--config-file "$(DOCS_CONFIG)" \
+		--strict \
+		--clean
+
+docs-build: docs-ensure ## Génère le site MkDocs dans Documentation/site
+	@echo "=== Construction de la documentation ==="
+	@"$(DOCS_MKDOCS)" build \
+		--config-file "$(DOCS_CONFIG)" \
+		--clean
+	@echo "Site généré dans : $(DOCS_SITE_DIR)"
+
+docs-serve: docs-ensure ## Sert MkDocs localement sur le port 8001
+	@echo "=== Serveur de documentation ==="
+	@echo "URL : http://localhost:$(DOCS_PORT)"
+	@"$(DOCS_MKDOCS)" serve \
+		--config-file "$(DOCS_CONFIG)" \
+		--dev-addr "$(DOCS_HOST):$(DOCS_PORT)"
+
+docs-clean: ## Supprime uniquement le site MkDocs généré
+	@rm -rf "$(DOCS_SITE_DIR)"
+	@echo "Site généré supprimé : $(DOCS_SITE_DIR)"

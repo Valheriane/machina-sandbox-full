@@ -10,7 +10,7 @@ spec:
         repoURL: https://github.com/Valheriane/machina-sandbox-full.git
         revision: main
         directories:
-          - path: k8s/apps/*
+          - path: Application/k8s/apps/*
   template:
     metadata:
       name: '{{ .path.basename }}'

@@ -31,9 +31,9 @@
   },
 
   "mounts": [
-    "source=${localWorkspaceFolderBasename}-fleet-api-venv,target=${containerWorkspaceFolder}/fleet-api/.venv,type=volume",
-    "source=${localWorkspaceFolderBasename}-drone-venv,target=${containerWorkspaceFolder}/agents/drone/.venv,type=volume",
-    "source=${localWorkspaceFolderBasename}-front-node-modules,target=${containerWorkspaceFolder}/front/node_modules,type=volume",
+    "source=${localWorkspaceFolderBasename}-application-fleet-api-venv,target=${containerWorkspaceFolder}/Application/fleet-api/.venv,type=volume",
+    "source=${localWorkspaceFolderBasename}-application-drone-venv,target=${containerWorkspaceFolder}/Application/agents/drone/.venv,type=volume",
+    "source=${localWorkspaceFolderBasename}-application-front-node-modules,target=${containerWorkspaceFolder}/Application/front/node_modules,type=volume",
     "source=${localWorkspaceFolderBasename}-kube,target=/home/vscode/.kube,type=volume",
     "source=${localWorkspaceFolderBasename}-minikube,target=/home/vscode/.minikube,type=volume"
   ],
@@ -62,7 +62,7 @@
         "editor.formatOnSave": true,
         "files.trimTrailingWhitespace": true,
         "yaml.validate": true,
-        "python.defaultInterpreterPath": "${workspaceFolder}/fleet-api/.venv/bin/python",
+        "python.defaultInterpreterPath": "${workspaceFolder}/Application/fleet-api/.venv/bin/python",
         "python.terminal.activateEnvironment": true
       }
     }

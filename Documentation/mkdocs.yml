@@ -1,0 +1,67 @@
+site_name: Machina Sandbox Full
+site_description: Documentation du bac à sable MachinaControl
+
+docs_dir: docs
+site_dir: site
+
+theme:
+  name: material
+  language: fr
+  features:
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+
+nav:
+  - Accueil: index.md
+
+  - Premiers pas:
+      - Prérequis: getting-started/prerequisites.md
+      - Dev Container et Minikube: getting-started/devcontainer-minikube.md
+      - Docker Compose local: getting-started/local-docker.md
+      - Commandes disponibles: getting-started/commands.md
+
+  - Architecture:
+      - Vue générale: architecture/overview.md
+      - Réseau et ports: architecture/networking.md
+      - Flux de données: architecture/data-flow.md
+      - Environnements: architecture/environments.md
+
+  - Services:
+      - Broker MQTT: services/broker-mqtt.md
+      - Fleet API: services/fleet-api.md
+      - Frontend: services/frontend.md
+      - Simulateur de drones: services/drone-simulator.md
+
+  - Intégrations:
+      - Ajouter un service: integrations/add-a-service.md
+      - Consommer la télémétrie: integrations/telemetry-consumer.md
+      - Contrats de messages: integrations/message-contracts.md
+      - Airflow: integrations/airflow.md
+
+  - Exploitation:
+      - Monitoring: operations/monitoring.md
+      - Logs: operations/logging.md
+      - Scripts: operations/scripts.md
+      - Dépannage: operations/troubleshooting.md
+
+  - GitOps:
+      - Stratégie de branches: gitops/branching-strategy.md
+      - Règles de contribution: gitops/contribution-rules.md
+      - Règles de déploiement: gitops/deployment-rules.md
+      - Versions et releases: gitops/release-process.md
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+
+plugins:
+  - search
