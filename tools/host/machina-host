@@ -19,7 +19,7 @@ info() {
 success() {
     printf '[OK] %s\n' "$*"
 }
-.
+
 warning() {
     printf '[ATTENTION] %s\n' "$*" >&2
 }

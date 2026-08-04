@@ -12,6 +12,15 @@ HELM_RELEASE ?= machina-test
 HELM_NAMESPACE ?= machina-helm-test
 RENDERED_MANIFEST ?= /tmp/machina-rendered.yaml
 
+DOCS_VENV ?= $(DOCUMENTATION_DIR)/.venv
+DOCS_PYTHON ?= $(DOCS_VENV)/bin/python
+DOCS_MKDOCS ?= $(DOCS_VENV)/bin/mkdocs
+DOCS_CONFIG ?= $(DOCUMENTATION_DIR)/mkdocs.yml
+DOCS_REQUIREMENTS ?= $(DOCUMENTATION_DIR)/requirements-docs.txt
+DOCS_SITE_DIR ?= $(DOCUMENTATION_DIR)/site
+DOCS_HOST ?= 0.0.0.0
+DOCS_PORT ?= 8001
+
 # Configuration locale Docker Compose
 MACHINA_MQTT_PORT ?= 1883
 MACHINA_MQTT_WS_PORT ?= 9001
@@ -318,3 +327,60 @@ host-stop: ensure-local ## Arrête le profil Minikube hôte sans le supprimer
 
 host-delete: ensure-local ## Supprime le profil Minikube hôte après confirmation
 	@bash $(HOST_TOOL) delete
+# ==========================================================
+# Documentation MkDocs
+# ==========================================================
+
+.PHONY: \
+        docs-install \
+        docs-ensure \
+        docs-check \
+        docs-build \
+        docs-serve \
+        docs-clean
+
+docs-install: ## Crée l'environnement virtuel et installe MkDocs
+	@echo "=== Installation de la documentation ==="
+	@test -f "$(DOCS_REQUIREMENTS)" || { \
+		echo "ERREUR : fichier absent : $(DOCS_REQUIREMENTS)"; \
+		exit 1; \
+	}
+	@python3 -m venv "$(DOCS_VENV)"
+	@"$(DOCS_PYTHON)" -m pip install \
+		--disable-pip-version-check \
+		--no-input \
+		-r "$(DOCS_REQUIREMENTS)"
+	@"$(DOCS_PYTHON)" -m pip check
+	@"$(DOCS_MKDOCS)" --version
+
+docs-ensure:
+	@test -x "$(DOCS_MKDOCS)" || { \
+		echo "ERREUR : MkDocs n'est pas installé."; \
+		echo "Exécute d'abord : make docs-install"; \
+		exit 1; \
+	}
+
+docs-check: docs-ensure ## Valide strictement la configuration et les pages MkDocs
+	@echo "=== Validation stricte de la documentation ==="
+	@"$(DOCS_MKDOCS)" build \
+		--config-file "$(DOCS_CONFIG)" \
+		--strict \
+		--clean
+
+docs-build: docs-ensure ## Génère le site MkDocs dans Documentation/site
+	@echo "=== Construction de la documentation ==="
+	@"$(DOCS_MKDOCS)" build \
+		--config-file "$(DOCS_CONFIG)" \
+		--clean
+	@echo "Site généré dans : $(DOCS_SITE_DIR)"
+
+docs-serve: docs-ensure ## Sert MkDocs localement sur le port 8001
+	@echo "=== Serveur de documentation ==="
+	@echo "URL : http://localhost:$(DOCS_PORT)"
+	@"$(DOCS_MKDOCS)" serve \
+		--config-file "$(DOCS_CONFIG)" \
+		--dev-addr "$(DOCS_HOST):$(DOCS_PORT)"
+
+docs-clean: ## Supprime uniquement le site MkDocs généré
+	@rm -rf "$(DOCS_SITE_DIR)"
+	@echo "Site généré supprimé : $(DOCS_SITE_DIR)"

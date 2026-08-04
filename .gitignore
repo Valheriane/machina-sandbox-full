@@ -38,3 +38,6 @@ front/node_modules/
 .venv/
 .pytest_cache/
 *.py[cod]
+
+# Documentation MkDocs générée
+Documentation/site/

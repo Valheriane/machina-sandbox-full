@@ -1,0 +1,5 @@
+# Générateur de documentation statique
+mkdocs>=1.6,<2
+
+# Thème et extensions Markdown associées
+mkdocs-material>=9,<10
