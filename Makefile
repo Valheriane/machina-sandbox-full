@@ -221,16 +221,50 @@ DEVCONT_MQTT_WS_NODEPORT ?= 30901
 
 DEVCONT_HELM_TIMEOUT ?= 5m
 
+DEVCONT_KUBE_CONTEXT ?= machina
+
+DEVCONT_MONITORING_NAMESPACE ?= monitoring
+DEVCONT_MONITORING_RELEASE ?= monitoring
+DEVCONT_MONITORING_CHART ?= prometheus-community/kube-prometheus-stack
+DEVCONT_MONITORING_VERSION ?= 88.1.5
+DEVCONT_MONITORING_VALUES ?= $(APPLICATION_DIR)/k8s/monitoring/prometheus-values.yaml
+DEVCONT_MONITORING_TIMEOUT ?= 10m
+
+DEVCONT_DASHBOARD_SCRIPT ?= $(APPLICATION_DIR)/scripts/observability/install-dashboard.sh
+
+DEVCONT_LOKI_RELEASE ?= loki
+DEVCONT_LOKI_CHART ?= grafana-community/loki
+DEVCONT_LOKI_VERSION ?= 18.7.6
+DEVCONT_LOKI_VALUES ?= $(APPLICATION_DIR)/k8s/monitoring/loki-values.yaml
+
+DEVCONT_ALLOY_RELEASE ?= alloy
+DEVCONT_ALLOY_CHART ?= grafana/alloy
+DEVCONT_ALLOY_VERSION ?= 1.11.1
+DEVCONT_ALLOY_VALUES ?= $(APPLICATION_DIR)/k8s/monitoring/alloy-values.yaml
+
+
 
 .PHONY: \
-	devcont-bootstrap \
-	devcont-build-images \
-	devcont-load-images \
-	devcont-deploy \
-	devcont-start \
-	devcont-check \
-	devcont-status \
-	devcont-stop
+        devcont-bootstrap \
+        devcont-build-images \
+        devcont-load-images \
+        devcont-deploy \
+        devcont-start \
+        devcont-check \
+        devcont-status \
+        devcont-stop \
+        devcont-monitoring-install \
+        devcont-monitoring-start \
+        devcont-monitoring-check \
+        devcont-monitoring-status \
+		devcont-dashboard-install \
+		devcont-loki-install \
+		devcont-loki-check \
+		devcont-alloy-install \
+		devcont-alloy-check \
+		devcont-dashboard-install \
+        devcont-observability-check \
+        devcont-observability-bootstrap
 
 
 devcont-bootstrap: devcont-deploy ## Première installation complète depuis le Dev Container
@@ -303,6 +337,89 @@ devcont-stop: k8s-connect ## Arrête l'application sans supprimer Helm ni Miniku
 	echo "=== Arrêt du broker ==="
 	kubectl scale deployment/broker --namespace $(DEVCONT_NAMESPACE) --replicas=0
 	kubectl get deployments --namespace $(DEVCONT_NAMESPACE)
+
+# ==========================================================
+# Dev Container - Monitoring
+# ==========================================================
+
+devcont-monitoring-install: k8s-connect ## Installe ou met à jour Prometheus et Grafana dans machina
+	helm repo add prometheus-community https://prometheus-community.github.io/helm-charts --force-update
+	helm repo update prometheus-community
+	helm upgrade --install $(DEVCONT_MONITORING_RELEASE) $(DEVCONT_MONITORING_CHART) --version $(DEVCONT_MONITORING_VERSION) --kube-context $(DEVCONT_KUBE_CONTEXT) --namespace $(DEVCONT_MONITORING_NAMESPACE) --create-namespace --values $(DEVCONT_MONITORING_VALUES) --wait --wait-for-jobs --timeout $(DEVCONT_MONITORING_TIMEOUT) --rollback-on-failure
+	$(MAKE) devcont-monitoring-check
+
+devcont-monitoring-check: k8s-connect ## Vérifie la release et les workloads Prometheus/Grafana
+	helm --kube-context $(DEVCONT_KUBE_CONTEXT) status $(DEVCONT_MONITORING_RELEASE) --namespace $(DEVCONT_MONITORING_NAMESPACE) >/dev/null
+	kubectl --context $(DEVCONT_KUBE_CONTEXT) rollout status deployment/monitoring-grafana --namespace $(DEVCONT_MONITORING_NAMESPACE) --timeout=180s
+	kubectl --context $(DEVCONT_KUBE_CONTEXT) rollout status deployment/monitoring-kube-prometheus-operator --namespace $(DEVCONT_MONITORING_NAMESPACE) --timeout=180s
+	kubectl --context $(DEVCONT_KUBE_CONTEXT) rollout status deployment/monitoring-kube-state-metrics --namespace $(DEVCONT_MONITORING_NAMESPACE) --timeout=180s
+	kubectl --context $(DEVCONT_KUBE_CONTEXT) rollout status daemonset/monitoring-prometheus-node-exporter --namespace $(DEVCONT_MONITORING_NAMESPACE) --timeout=180s
+	kubectl --context $(DEVCONT_KUBE_CONTEXT) rollout status statefulset/prometheus-monitoring-kube-prometheus-prometheus --namespace $(DEVCONT_MONITORING_NAMESPACE) --timeout=180s
+	echo "Monitoring Prometheus/Grafana opérationnel."
+
+devcont-monitoring-start: k8s-connect ## Attend le redémarrage du monitoring déjà installé
+	helm --kube-context $(DEVCONT_KUBE_CONTEXT) status $(DEVCONT_MONITORING_RELEASE) --namespace $(DEVCONT_MONITORING_NAMESPACE) >/dev/null 2>&1 || { echo "ERREUR : release monitoring absente. Lance d'abord 'make devcont-monitoring-install'."; exit 1; }
+	$(MAKE) devcont-monitoring-check
+
+devcont-monitoring-status: k8s-connect ## Affiche l'état du monitoring dans machina
+	echo "=== Release monitoring ==="
+	helm --kube-context $(DEVCONT_KUBE_CONTEXT) list --namespace $(DEVCONT_MONITORING_NAMESPACE)
+	echo
+	echo "=== Pods et services ==="
+	kubectl --context $(DEVCONT_KUBE_CONTEXT) get pods,services --namespace $(DEVCONT_MONITORING_NAMESPACE)
+	echo
+	echo "Grafana    : port-forward local 3000 -> monitoring-grafana:80"
+	echo "Prometheus : port-forward local 9090 -> monitoring-kube-prometheus-prometheus:9090"
+
+devcont-dashboard-install: k8s-connect ## Provisionne le dashboard Machina Control Sandbox dans Grafana
+	KUBE_CONTEXT=$(DEVCONT_KUBE_CONTEXT) MONITORING_NAMESPACE=$(DEVCONT_MONITORING_NAMESPACE) bash $(DEVCONT_DASHBOARD_SCRIPT)
+
+devcont-loki-install: k8s-connect ## Installe ou met à jour Loki dans machina
+	helm repo add grafana-community https://grafana-community.github.io/helm-charts --force-update
+	helm repo update grafana-community
+	helm upgrade --install $(DEVCONT_LOKI_RELEASE) $(DEVCONT_LOKI_CHART) --version $(DEVCONT_LOKI_VERSION) --kube-context $(DEVCONT_KUBE_CONTEXT) --namespace $(DEVCONT_MONITORING_NAMESPACE) --create-namespace --values $(DEVCONT_LOKI_VALUES) --wait --wait-for-jobs --timeout $(DEVCONT_MONITORING_TIMEOUT) --rollback-on-failure
+	$(MAKE) devcont-loki-check
+
+
+devcont-loki-check: k8s-connect ## Vérifie Loki
+	helm --kube-context $(DEVCONT_KUBE_CONTEXT) status $(DEVCONT_LOKI_RELEASE) --namespace $(DEVCONT_MONITORING_NAMESPACE) >/dev/null
+	kubectl --context $(DEVCONT_KUBE_CONTEXT) rollout status statefulset/loki --namespace $(DEVCONT_MONITORING_NAMESPACE) --timeout=180s
+	kubectl --context $(DEVCONT_KUBE_CONTEXT) rollout status deployment/loki-gateway --namespace $(DEVCONT_MONITORING_NAMESPACE) --timeout=180s
+	kubectl --context $(DEVCONT_KUBE_CONTEXT) rollout status daemonset/loki-canary --namespace $(DEVCONT_MONITORING_NAMESPACE) --timeout=180s
+	echo "Loki opérationnel."
+
+devcont-alloy-install: k8s-connect ## Installe ou met à jour Grafana Alloy dans machina
+	helm repo add grafana https://grafana.github.io/helm-charts --force-update
+	helm repo update grafana
+	helm upgrade --install $(DEVCONT_ALLOY_RELEASE) $(DEVCONT_ALLOY_CHART) --version $(DEVCONT_ALLOY_VERSION) --kube-context $(DEVCONT_KUBE_CONTEXT) --namespace $(DEVCONT_MONITORING_NAMESPACE) --create-namespace --values $(DEVCONT_ALLOY_VALUES) --wait --wait-for-jobs --timeout $(DEVCONT_MONITORING_TIMEOUT) --rollback-on-failure
+	$(MAKE) devcont-alloy-check
+
+
+devcont-alloy-check: k8s-connect ## Vérifie Grafana Alloy
+	helm --kube-context $(DEVCONT_KUBE_CONTEXT) status $(DEVCONT_ALLOY_RELEASE) --namespace $(DEVCONT_MONITORING_NAMESPACE) >/dev/null
+	kubectl --context $(DEVCONT_KUBE_CONTEXT) rollout status deployment/alloy --namespace $(DEVCONT_MONITORING_NAMESPACE) --timeout=180s
+	echo "Grafana Alloy opérationnel."
+
+devcont-observability-check: k8s-connect ## Vérifie toute la pile d'observabilité Machina
+	echo "=== Vérification de l'observabilité Machina ==="
+	helm --kube-context $(DEVCONT_KUBE_CONTEXT) status $(DEVCONT_MONITORING_RELEASE) --namespace $(DEVCONT_MONITORING_NAMESPACE) >/dev/null
+	helm --kube-context $(DEVCONT_KUBE_CONTEXT) status $(DEVCONT_LOKI_RELEASE) --namespace $(DEVCONT_MONITORING_NAMESPACE) >/dev/null
+	helm --kube-context $(DEVCONT_KUBE_CONTEXT) status $(DEVCONT_ALLOY_RELEASE) --namespace $(DEVCONT_MONITORING_NAMESPACE) >/dev/null
+	$(MAKE) devcont-monitoring-check
+	$(MAKE) devcont-loki-check
+	$(MAKE) devcont-alloy-check
+	test "$$(kubectl --context $(DEVCONT_KUBE_CONTEXT) get configmap machina-control-sandbox-dashboard --namespace $(DEVCONT_MONITORING_NAMESPACE) -o jsonpath='{.metadata.labels.grafana_dashboard}')" = "1"
+	echo "Dashboard Machina Control Sandbox provisionné."
+	echo "Observabilité Machina opérationnelle."
+
+devcont-observability-bootstrap: k8s-connect ## Installe toute l'observabilité Machina
+	echo "=== Bootstrap de l'observabilité Machina ==="
+	$(MAKE) devcont-loki-install
+	$(MAKE) devcont-monitoring-install
+	$(MAKE) devcont-alloy-install
+	$(MAKE) devcont-dashboard-install
+	$(MAKE) devcont-observability-check
+	echo "=== Observabilité Machina prête ==="
 
 # === Host Minikube lifecycle ===
 

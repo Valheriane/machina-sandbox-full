@@ -109,6 +109,13 @@ prepare_directory "${HOME}/.minikube"
 
 log_ok "Répertoires Kubernetes prêts"
 
+log_info "Configuration des dépôts Helm..."
+
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts --force-update
+helm repo update prometheus-community
+
+log_ok "Dépôts Helm configurés"
+
 echo
 echo "=================================================="
 log_ok "Dev Container prêt"
