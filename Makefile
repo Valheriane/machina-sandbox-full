@@ -230,6 +230,7 @@ DEVCONT_ARGOCD_VERSION ?= v3.5.1
 DEVCONT_ARGOCD_PORT ?= 8080
 DEVCONT_ARGOCD_TIMEOUT ?= 180s
 DEVCONT_ARGOCD_INSTALL_URL ?= https://raw.githubusercontent.com/argoproj/argo-cd/$(DEVCONT_ARGOCD_VERSION)/manifests/install.yaml
+DEVCONT_ARGOCD_APP ?= machina-sandbox-dev
 
 DEVCONT_MONITORING_NAMESPACE ?= monitoring
 DEVCONT_MONITORING_RELEASE ?= monitoring
@@ -279,6 +280,7 @@ DEVCONT_ALLOY_VALUES ?= $(APPLICATION_DIR)/k8s/monitoring/alloy-values.yaml
 		devcont-argocd-bootstrap \
 		devcont-argocd-forward \
 		devcont-argocd-initial-password \
+        devcont-gitops-check \
 
 
 devcont-bootstrap: devcont-deploy ## Première installation complète depuis le Dev Container
@@ -508,6 +510,31 @@ devcont-argocd-initial-password: k8s-connect ## Prépare le mot de passe initial
 		> /tmp/argocd-initial-password
 	@echo "Utilisateur : admin"
 	@echo "Mot de passe : /tmp/argocd-initial-password"
+
+devcont-gitops-check: k8s-connect ## Vérifie l'état GitOps de Machina
+	@echo "=== Vérification GitOps Machina ==="
+	@SYNC_STATUS="$$(kubectl --context $(DEVCONT_KUBE_CONTEXT) \
+		--namespace $(DEVCONT_ARGOCD_NAMESPACE) \
+		get application $(DEVCONT_ARGOCD_APP) \
+		-o jsonpath='{.status.sync.status}')"; \
+	HEALTH_STATUS="$$(kubectl --context $(DEVCONT_KUBE_CONTEXT) \
+		--namespace $(DEVCONT_ARGOCD_NAMESPACE) \
+		get application $(DEVCONT_ARGOCD_APP) \
+		-o jsonpath='{.status.health.status}')"; \
+	echo "Sync   : $$SYNC_STATUS"; \
+	echo "Health : $$HEALTH_STATUS"; \
+	test "$$SYNC_STATUS" = "Synced" || { echo "ERREUR : application Argo CD non synchronisée."; exit 1; }; \
+	test "$$HEALTH_STATUS" = "Healthy" || { echo "ERREUR : application Argo CD non saine."; exit 1; }
+	@kubectl --context $(DEVCONT_KUBE_CONTEXT) \
+		--namespace $(DEVCONT_NAMESPACE) \
+		rollout status deployment/broker --timeout=120s
+	@kubectl --context $(DEVCONT_KUBE_CONTEXT) \
+		--namespace $(DEVCONT_NAMESPACE) \
+		rollout status deployment/fleet-api --timeout=120s
+	@kubectl --context $(DEVCONT_KUBE_CONTEXT) \
+		--namespace $(DEVCONT_NAMESPACE) \
+		rollout status deployment/front --timeout=120s
+	@echo "GitOps Machina opérationnel."
 
 # === Host Minikube lifecycle ===
 
