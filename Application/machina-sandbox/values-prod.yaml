@@ -1,0 +1,32 @@
+# Production overrides for Machina Sandbox.
+#
+# This file is intentionally conservative for now.
+# It must NOT be considered production-ready yet.
+#
+# To be completed before the first remote deployment:
+# - container registry and immutable image tags
+# - public HTTP / WebSocket / MQTT exposure
+# - Kubernetes Secrets
+# - persistent database / PostgreSQL
+# - TLS and ingress strategy
+
+broker:
+  image:
+    pullPolicy: IfNotPresent
+
+  service:
+    type: ClusterIP
+
+fleetApi:
+  image:
+    pullPolicy: IfNotPresent
+
+  service:
+    type: ClusterIP
+
+front:
+  image:
+    pullPolicy: IfNotPresent
+
+  service:
+    type: ClusterIP

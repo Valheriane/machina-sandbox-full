@@ -116,6 +116,12 @@ helm repo update prometheus-community
 
 log_ok "Dépôts Helm configurés"
 
+log_info "Installation du CLI Argo CD..."
+
+bash "${ROOT_DIR}/.devcontainer/install-argocd-cli.sh"
+
+log_ok "CLI Argo CD prêt"
+
 echo
 echo "=================================================="
 log_ok "Dev Container prêt"
