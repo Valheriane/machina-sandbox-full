@@ -12,6 +12,12 @@ HELM_RELEASE ?= machina-test
 HELM_NAMESPACE ?= machina-helm-test
 RENDERED_MANIFEST ?= /tmp/machina-rendered.yaml
 
+CI_CHART ?= Application/machina-sandbox
+CI_DEV_VALUES ?= $(CI_CHART)/values-dev.yaml
+CI_PROD_VALUES ?= $(CI_CHART)/values-prod.yaml
+CI_RENDER_DIR ?= /tmp/machina-ci
+
+
 DOCS_VENV ?= $(DOCUMENTATION_DIR)/.venv
 DOCS_PYTHON ?= $(DOCS_VENV)/bin/python
 DOCS_MKDOCS ?= $(DOCS_VENV)/bin/mkdocs
@@ -47,7 +53,8 @@ export MACHINA_SHARED_SECRET
 	open-grafana open-argocd \
 	minikube-start minikube-stop minikube-status \
 	pods namespaces releases \
-	compose-config compose-up compose-down compose-restart compose-status compose-logs
+	compose-config compose-up compose-down compose-restart compose-status compose-logs \
+    ci-gitops \
 
 help: ## Affiche la liste des commandes disponibles
 	@echo
@@ -189,6 +196,56 @@ validate-k8s: ## Valide le chart Helm et les manifests Kubernetes hors ligne
 		-ignore-missing-schemas \
 		$(RENDERED_MANIFEST)
 
+ci-gitops: ## Valide les rendus Helm DEV et PROD utilisés par GitOps
+	@echo "=== Préparation validation GitOps ==="
+	@rm -rf $(CI_RENDER_DIR)
+	@mkdir -p $(CI_RENDER_DIR)
+
+	@echo
+	@echo "=== Helm lint DEV ==="
+	@helm lint $(CI_CHART) \
+		--strict \
+		--values $(CI_DEV_VALUES)
+
+	@echo
+	@echo "=== Helm template DEV ==="
+	@helm template machina-sandbox $(CI_CHART) \
+		--namespace machina-sandbox \
+		--values $(CI_DEV_VALUES) \
+		> $(CI_RENDER_DIR)/dev.yaml
+
+	@echo
+	@echo "=== Kubeconform DEV ==="
+	@kubeconform \
+		-strict \
+		-summary \
+		-ignore-missing-schemas \
+		$(CI_RENDER_DIR)/dev.yaml
+
+	@echo
+	@echo "=== Helm lint PROD ==="
+	@helm lint $(CI_CHART) \
+		--strict \
+		--values $(CI_PROD_VALUES)
+
+	@echo
+	@echo "=== Helm template PROD ==="
+	@helm template machina-sandbox $(CI_CHART) \
+		--namespace machina-sandbox \
+		--values $(CI_PROD_VALUES) \
+		> $(CI_RENDER_DIR)/prod.yaml
+
+	@echo
+	@echo "=== Kubeconform PROD ==="
+	@kubeconform \
+		-strict \
+		-summary \
+		-ignore-missing-schemas \
+		$(CI_RENDER_DIR)/prod.yaml
+
+	@echo
+	@echo "Validation GitOps DEV + PROD réussie."
+
 k8s-connect: ## Connecte le Dev Container au cluster Minikube machina
 	@CONNECT_MINIKUBE_STRICT=1 bash .devcontainer/connect-minikube.sh
 
@@ -222,6 +279,7 @@ DEVCONT_MQTT_NODEPORT ?= 31883
 DEVCONT_MQTT_WS_NODEPORT ?= 30901
 
 DEVCONT_HELM_TIMEOUT ?= 5m
+
 
 DEVCONT_KUBE_CONTEXT ?= machina
 
@@ -281,6 +339,7 @@ DEVCONT_ALLOY_VALUES ?= $(APPLICATION_DIR)/k8s/monitoring/alloy-values.yaml
 		devcont-argocd-forward \
 		devcont-argocd-initial-password \
         devcont-gitops-check \
+
 
 
 devcont-bootstrap: devcont-deploy ## Première installation complète depuis le Dev Container
