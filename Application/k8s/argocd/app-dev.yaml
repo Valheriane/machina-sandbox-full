@@ -1,0 +1,22 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: machina-sandbox-dev
+  namespace: argocd
+
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/Valheriane/machina-sandbox-full.git
+    targetRevision: dev
+    path: Application/machina-sandbox
+
+    helm:
+      releaseName: machina-sandbox
+      valueFiles:
+        - values-dev.yaml
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: machina-sandbox
