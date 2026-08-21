@@ -214,6 +214,8 @@ DEVCONT_NAMESPACE ?= machina-sandbox
 DEVCONT_RELEASE ?= machina-sandbox
 DEVCONT_CHART ?= $(APPLICATION_DIR)/machina-sandbox
 
+DEVCONT_VALUES ?= $(DEVCONT_CHART)/values-dev.yaml
+
 DEVCONT_API_NODEPORT ?= 30800
 DEVCONT_FRONT_NODEPORT ?= 32449
 DEVCONT_MQTT_NODEPORT ?= 31883
@@ -222,6 +224,12 @@ DEVCONT_MQTT_WS_NODEPORT ?= 30901
 DEVCONT_HELM_TIMEOUT ?= 5m
 
 DEVCONT_KUBE_CONTEXT ?= machina
+
+DEVCONT_ARGOCD_NAMESPACE ?= argocd
+DEVCONT_ARGOCD_VERSION ?= v3.5.1
+DEVCONT_ARGOCD_PORT ?= 8080
+DEVCONT_ARGOCD_TIMEOUT ?= 180s
+DEVCONT_ARGOCD_INSTALL_URL ?= https://raw.githubusercontent.com/argoproj/argo-cd/$(DEVCONT_ARGOCD_VERSION)/manifests/install.yaml
 
 DEVCONT_MONITORING_NAMESPACE ?= monitoring
 DEVCONT_MONITORING_RELEASE ?= monitoring
@@ -264,7 +272,13 @@ DEVCONT_ALLOY_VALUES ?= $(APPLICATION_DIR)/k8s/monitoring/alloy-values.yaml
 		devcont-alloy-check \
 		devcont-dashboard-install \
         devcont-observability-check \
-        devcont-observability-bootstrap
+        devcont-observability-bootstrap \
+		devcont-argocd-install \
+		devcont-argocd-check \
+        devcont-argocd-status \
+		devcont-argocd-bootstrap \
+		devcont-argocd-forward \
+		devcont-argocd-initial-password \
 
 
 devcont-bootstrap: devcont-deploy ## Première installation complète depuis le Dev Container
@@ -289,7 +303,16 @@ devcont-deploy: k8s-connect ## Construit, charge et déploie le projet avec Helm
 	$(MAKE) validate-k8s
 	$(MAKE) devcont-build-images
 	$(MAKE) devcont-load-images
-	MINIKUBE_IP="$$(docker inspect $(DEVCONT_MINIKUBE_CONTAINER) --format '{{range .NetworkSettings.Networks}}{{println .IPAddress}}{{end}}' | head -n 1)"; test -n "$$MINIKUBE_IP" || { echo "ERREUR : IP Minikube introuvable."; exit 1; }; helm upgrade --install $(DEVCONT_RELEASE) $(DEVCONT_CHART) --namespace $(DEVCONT_NAMESPACE) --create-namespace --set-string fleetApi.env.corsOrigins="http://$$MINIKUBE_IP:$(DEVCONT_FRONT_NODEPORT)" --wait --timeout $(DEVCONT_HELM_TIMEOUT) --rollback-on-failure
+	MINIKUBE_IP="$$(docker inspect $(DEVCONT_MINIKUBE_CONTAINER) --format '{{range .NetworkSettings.Networks}}{{println .IPAddress}}{{end}}' | head -n 1)"; \
+	test -n "$$MINIKUBE_IP" || { echo "ERREUR : IP Minikube introuvable."; exit 1; }; \
+	helm upgrade --install $(DEVCONT_RELEASE) $(DEVCONT_CHART) \
+		--namespace $(DEVCONT_NAMESPACE) \
+		--create-namespace \
+		--values $(DEVCONT_VALUES) \
+		--set-string fleetApi.env.corsOrigins="http://$$MINIKUBE_IP:$(DEVCONT_FRONT_NODEPORT)" \
+		--wait \
+		--timeout $(DEVCONT_HELM_TIMEOUT) \
+		--rollback-on-failure
 	kubectl rollout restart deployment/fleet-api deployment/front --namespace $(DEVCONT_NAMESPACE)
 	kubectl rollout status deployment/broker --namespace $(DEVCONT_NAMESPACE) --timeout=120s
 	kubectl rollout status deployment/fleet-api --namespace $(DEVCONT_NAMESPACE) --timeout=120s
@@ -420,6 +443,71 @@ devcont-observability-bootstrap: k8s-connect ## Installe toute l'observabilité 
 	$(MAKE) devcont-dashboard-install
 	$(MAKE) devcont-observability-check
 	echo "=== Observabilité Machina prête ==="
+
+# ==========================================================
+# Dev Container - Argo CD
+# ==========================================================
+
+devcont-argocd-install: k8s-connect ## Installe Argo CD dans le cluster machina
+	@echo "=== Installation de Argo CD $(DEVCONT_ARGOCD_VERSION) ==="
+	@kubectl --context $(DEVCONT_KUBE_CONTEXT) create namespace $(DEVCONT_ARGOCD_NAMESPACE) \
+		--dry-run=client \
+		-o yaml \
+		| kubectl --context $(DEVCONT_KUBE_CONTEXT) apply -f -
+	@kubectl --context $(DEVCONT_KUBE_CONTEXT) apply \
+		--namespace $(DEVCONT_ARGOCD_NAMESPACE) \
+		--server-side \
+		--force-conflicts \
+		-f $(DEVCONT_ARGOCD_INSTALL_URL)
+	@echo "Installation Argo CD appliquée."
+
+devcont-argocd-bootstrap: devcont-argocd-install ## Installe et vérifie Argo CD dans machina
+	@$(MAKE) devcont-argocd-check
+	@echo "=== Argo CD Machina prêt ==="
+
+devcont-argocd-check: k8s-connect ## Vérifie Argo CD dans le cluster machina
+	@echo "=== Vérification de Argo CD ==="
+	@kubectl --context $(DEVCONT_KUBE_CONTEXT) get namespace $(DEVCONT_ARGOCD_NAMESPACE) >/dev/null
+	@kubectl --context $(DEVCONT_KUBE_CONTEXT) rollout status deployment/argocd-applicationset-controller --namespace $(DEVCONT_ARGOCD_NAMESPACE) --timeout=$(DEVCONT_ARGOCD_TIMEOUT)
+	@kubectl --context $(DEVCONT_KUBE_CONTEXT) rollout status deployment/argocd-dex-server --namespace $(DEVCONT_ARGOCD_NAMESPACE) --timeout=$(DEVCONT_ARGOCD_TIMEOUT)
+	@kubectl --context $(DEVCONT_KUBE_CONTEXT) rollout status deployment/argocd-notifications-controller --namespace $(DEVCONT_ARGOCD_NAMESPACE) --timeout=$(DEVCONT_ARGOCD_TIMEOUT)
+	@kubectl --context $(DEVCONT_KUBE_CONTEXT) rollout status deployment/argocd-redis --namespace $(DEVCONT_ARGOCD_NAMESPACE) --timeout=$(DEVCONT_ARGOCD_TIMEOUT)
+	@kubectl --context $(DEVCONT_KUBE_CONTEXT) rollout status deployment/argocd-repo-server --namespace $(DEVCONT_ARGOCD_NAMESPACE) --timeout=$(DEVCONT_ARGOCD_TIMEOUT)
+	@kubectl --context $(DEVCONT_KUBE_CONTEXT) rollout status deployment/argocd-server --namespace $(DEVCONT_ARGOCD_NAMESPACE) --timeout=$(DEVCONT_ARGOCD_TIMEOUT)
+	@kubectl --context $(DEVCONT_KUBE_CONTEXT) rollout status statefulset/argocd-application-controller --namespace $(DEVCONT_ARGOCD_NAMESPACE) --timeout=$(DEVCONT_ARGOCD_TIMEOUT)
+	@echo "Argo CD opérationnel."
+
+devcont-argocd-status: k8s-connect ## Affiche l'état de Argo CD dans machina
+	@echo "=== Argo CD ==="
+	@echo "Version cible : $(DEVCONT_ARGOCD_VERSION)"
+	@echo
+	@kubectl --context $(DEVCONT_KUBE_CONTEXT) get pods,services --namespace $(DEVCONT_ARGOCD_NAMESPACE)
+	@echo
+	@echo "=== Applications Argo CD ==="
+	@kubectl --context $(DEVCONT_KUBE_CONTEXT) get applications.argoproj.io --namespace $(DEVCONT_ARGOCD_NAMESPACE)
+	@echo
+	@echo "Interface : https://localhost:$(DEVCONT_ARGOCD_PORT) via port-forward"
+
+devcont-argocd-forward: k8s-connect ## Ouvre un port-forward local vers l'interface Argo CD
+	@echo "=== Interface Argo CD ==="
+	@echo "URL : https://localhost:$(DEVCONT_ARGOCD_PORT)"
+	@echo "Arrêter le port-forward avec Ctrl+C."
+	@kubectl --context $(DEVCONT_KUBE_CONTEXT) \
+		--namespace $(DEVCONT_ARGOCD_NAMESPACE) \
+		port-forward svc/argocd-server $(DEVCONT_ARGOCD_PORT):443
+
+devcont-argocd-initial-password: k8s-connect ## Prépare le mot de passe initial Argo CD local
+	@echo "=== Mot de passe initial Argo CD ==="
+	@echo "Le mot de passe sera enregistré localement dans /tmp/argocd-initial-password."
+	@echo "Ne pas versionner ni partager ce fichier."
+	@umask 077; \
+		argocd admin initial-password \
+		--namespace $(DEVCONT_ARGOCD_NAMESPACE) \
+		--kube-context $(DEVCONT_KUBE_CONTEXT) \
+		| head -n 1 \
+		> /tmp/argocd-initial-password
+	@echo "Utilisateur : admin"
+	@echo "Mot de passe : /tmp/argocd-initial-password"
 
 # === Host Minikube lifecycle ===
 

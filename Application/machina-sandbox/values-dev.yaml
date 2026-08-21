@@ -1,0 +1,21 @@
+broker:
+  service:
+    type: NodePort
+    mqttNodePort: 31883
+    websocketNodePort: 30901
+
+fleetApi:
+  image:
+    pullPolicy: Never
+
+  service:
+    type: NodePort
+    nodePort: 30800
+
+front:
+  image:
+    pullPolicy: Never
+
+  service:
+    type: NodePort
+    nodePort: 32449

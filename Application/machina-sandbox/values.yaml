@@ -7,11 +7,11 @@ broker:
     pullPolicy: IfNotPresent
 
   service:
-    type: NodePort
+    type: ClusterIP
     mqttPort: 1883
-    mqttNodePort: 31883
+    #mqttNodePort: 31883
     websocketPort: 9001
-    websocketNodePort: 30901
+    #websocketNodePort: 30901
 
 
 fleetApi:
@@ -20,12 +20,12 @@ fleetApi:
   image:
     repository: fleet-api
     tag: latest
-    pullPolicy: Never
+    pullPolicy: IfNotPresent
 
   service:
-    type: NodePort
+    type: ClusterIP
     port: 8000
-    nodePort: 30800
+    #nodePort: 30800
 
   env:
     mqttHost: broker
@@ -42,12 +42,12 @@ front:
   image:
     repository: front
     tag: latest
-    pullPolicy: Never
+    pullPolicy: IfNotPresent
 
   service:
-    type: NodePort
+    type: ClusterIP
     port: 80
-    nodePort: 32449
+    #nodePort: 32449
 
   # Conservé car front-deployment.yaml utilise encore ces valeurs.
   env:
